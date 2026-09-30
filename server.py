@@ -251,6 +251,12 @@ class DeletePayload(BaseModel):
     reason: Optional[str] = ""
 
 
+class BatchDeletePayload(BaseModel):
+    container_ids: List[int]
+    user: str = ""
+    reason: Optional[str] = "Пакетное удаление"
+
+
 class RegistryItem(BaseModel):
     container_no: str
     active: int = 1
@@ -474,18 +480,12 @@ import re
 
 @app.post("/containers", response_model=ContainerOut, status_code=status.HTTP_201_CREATED)
 def create_container(payload: ContainerIn):
-    raw_nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', payload.container_no) if n.strip()]
-    seen = set()
-    numbers = []
-    for n in raw_nums:
-        if n not in seen:
-            seen.add(n)
-            numbers.append(n)
+    numbers = [n.strip().upper() for n in re.split(r'[\r\n,;\s\t]+', payload.container_no) if n.strip()]
+    if not numbers:
+        numbers = [payload.container_no.strip().upper()] if payload.container_no.strip() else []
 
     if not numbers:
         raise HTTPException(status_code=400, detail="Укажите хотя бы один номер контейнера")
-    if len(numbers) > 20:
-        raise HTTPException(status_code=400, detail=f"Разрешено вводить не более 20 номеров за один раз (введено {len(numbers)})")
 
     con = get_db()
     cur = con.cursor()
@@ -531,18 +531,10 @@ def create_container(payload: ContainerIn):
 
 @app.post("/containers/batch", response_model=List[ContainerOut], status_code=status.HTTP_201_CREATED)
 def create_containers_batch(payload: BatchContainersIn):
-    raw_nums = [n.strip().upper() for n in payload.container_numbers if n.strip()]
-    seen = set()
-    numbers = []
-    for n in raw_nums:
-        if n not in seen:
-            seen.add(n)
-            numbers.append(n)
+    numbers = [n.strip().upper() for n in payload.container_numbers if n.strip()]
 
     if not numbers:
         raise HTTPException(status_code=400, detail="Укажите хотя бы один номер контейнера")
-    if len(numbers) > 20:
-        raise HTTPException(status_code=400, detail=f"Разрешено вводить не более 20 номеров за один раз (введено {len(numbers)})")
 
     con = get_db()
     cur = con.cursor()
@@ -672,6 +664,48 @@ def delete_container(container_id: int, payload: DeletePayload):
     con.close()
 
     return {"ok": True, "message": f"Контейнер {c_dict['container_no']} удален"}
+
+
+@app.post("/containers/batch-delete")
+def batch_delete_containers(payload: BatchDeletePayload):
+    if not payload.container_ids:
+        raise HTTPException(status_code=400, detail="Список идентификаторов пуст")
+
+    con = get_db()
+    cur = con.cursor()
+    placeholders = ",".join("?" for _ in payload.container_ids)
+
+    cur.execute(f"SELECT * FROM containers WHERE id IN ({placeholders})", tuple(payload.container_ids))
+    rows = cur.fetchall()
+
+    if not rows:
+        con.close()
+        return {"ok": True, "deleted_count": 0, "message": "Контейнеры не найдены"}
+
+    deleted_nos = []
+    for r in rows:
+        c_dict = dict(r)
+        deleted_nos.append(c_dict["container_no"])
+        log_history(con, c_dict["id"], c_dict["container_no"], "DELETE", {
+            "deleted_record": c_dict,
+            "reason": payload.reason or "Пакетное удаление"
+        }, payload.user or "Диспетчер")
+
+    cur.execute(f"DELETE FROM containers WHERE id IN ({placeholders})", tuple(payload.container_ids))
+    con.commit()
+    con.close()
+
+    return {
+        "ok": True,
+        "deleted_count": len(deleted_nos),
+        "deleted_numbers": deleted_nos,
+        "message": f"Успешно удалено контейнеров: {len(deleted_nos)} шт."
+    }
+
+
+@app.delete("/containers/batch")
+def delete_containers_batch(payload: BatchDeletePayload):
+    return batch_delete_containers(payload)
 
 
 @app.get("/containers/{container_id}/history")

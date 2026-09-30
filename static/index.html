@@ -269,6 +269,7 @@
   <!-- 2. Панель кнопок действий -->
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openAddModal()">➕ Добавить контейнер</button>
+    <button class="btn btn-danger" id="btnBatchDelete" style="display:none;" onclick="batchDeleteSelected()">🗑 Удалить выбранные (<span id="selectedCountBadge">0</span>)</button>
     <button class="btn btn-secondary" onclick="fetchContainers()">🔄 Обновить</button>
     <button class="btn btn-secondary" onclick="exportToExcel()">📊 Экспорт в Excel</button>
     <button class="btn btn-secondary" onclick="openChartModal()">📈 Интерактивный график</button>
@@ -338,6 +339,7 @@
       <table id="mainTable">
         <thead>
           <tr>
+            <th style="width: 44px; text-align: center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Выбрать все" style="cursor: pointer; width: 16px; height: 16px; vertical-align: middle;"></th>
             <th>Номер</th>
             <th>Грузополучатель</th>
             <th>Наименование груза</th>
@@ -352,7 +354,7 @@
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Загрузка данных...</td></tr>
+          <tr><td colspan="12" style="text-align: center; padding: 30px; color: #64748b;">Загрузка данных...</td></tr>
         </tbody>
       </table>
     </div>
@@ -376,14 +378,14 @@
 
         <div class="form-group">
           <label for="f_no" id="label_f_no">
-            Номер контейнера *
+            Номер контейнера / вагона *
             <span id="noBatchHint" style="font-size:0.78rem; font-weight:normal; color:#2563eb; margin-left:6px;">
-              (до 20 номеров через запятую, пробел или Enter)
+              (вставляйте любое количество: через Enter, пробел или запятую)
             </span>
           </label>
-          <textarea id="f_no" class="input-control" rows="2" style="width:100%; font-family: monospace; font-size: 0.92rem; text-transform: uppercase;" placeholder="Например: TGHU1234567, MSKU7654321..." oninput="updateBatchBadge()"></textarea>
-          <div id="noBatchCount" style="font-size: 0.8rem; color: #475569; margin-top: 4px; font-weight: 500;">
-            Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">0</span> / 20
+          <textarea id="f_no" class="input-control" rows="3" style="width:100%; font-family: monospace; font-size: 0.92rem; text-transform: uppercase;" placeholder="Вставьте список номеров: например из Excel, 1С или столбиком..." oninput="updateBatchBadge()" onpaste="setTimeout(updateBatchBadge, 20)" onkeyup="updateBatchBadge()" onchange="updateBatchBadge()"></textarea>
+          <div id="noBatchCount" style="font-size: 0.82rem; color: #475569; margin-top: 4px; font-weight: 500;">
+            Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">0</span> шт.
           </div>
         </div>
 
@@ -1065,16 +1067,16 @@
       fillDatalist('filterCargosDatalist', cargos);
     }
 
-    // ================== ПАРСИНГ НОМЕРОВ КОНТЕЙНЕРОВ (ДО 20 ШТ) ==================
+    // ================== ПАРСИНГ НОМЕРОВ КОНТЕЙНЕРОВ / ВАГОНОВ ==================
     function parseContainerNumbers(str) {
       if (!str) return [];
-      const tokens = str.split(/[\r\n,;\s]+/);
-      const seen = new Set();
+      // Очистка от неразрывных пробелов и специальных символов разделителей
+      const clean = str.replace(/[\u00a0\u2000-\u200b\u2028\u2029]/g, ' ');
+      const tokens = clean.split(/[\r\n,;\s\t]+/);
       const result = [];
       for (let t of tokens) {
         t = t.trim().toUpperCase();
-        if (t && !seen.has(t)) {
-          seen.add(t);
+        if (t) {
           result.push(t);
         }
       }
@@ -1094,12 +1096,11 @@
 
       if (badgeWrap) {
         badgeWrap.style.display = 'block';
-        if (list.length > 20) {
-          badgeWrap.style.color = '#dc2626';
-          badgeWrap.innerHTML = `⚠️ Распознано: <span style="font-weight:700;">${list.length}</span> / 20. Превышен лимит! Допустимо не более 20 номеров.`;
+        badgeWrap.style.color = '#475569';
+        if (list.length > 0) {
+          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">${list.length}</span> шт.`;
         } else {
-          badgeWrap.style.color = '#475569';
-          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">${list.length}</span> / 20`;
+          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#94a3b8; font-size:0.95rem;">0</span> шт.`;
         }
       }
     }
@@ -1163,11 +1164,117 @@
       document.getElementById('kpiEmpty').textContent = empty;
     }
 
+    let selectedContainerIds = new Set();
+    let currentRenderedList = [];
+
+    function toggleRowSelect(id, checked) {
+      if (checked) {
+        selectedContainerIds.add(id);
+      } else {
+        selectedContainerIds.delete(id);
+      }
+      updateSelectedUI();
+    }
+
+    function toggleSelectAll(checked) {
+      if (checked) {
+        currentRenderedList.forEach(c => selectedContainerIds.add(c.id));
+      } else {
+        currentRenderedList.forEach(c => selectedContainerIds.delete(c.id));
+      }
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+      updateSelectedUI();
+    }
+
+    function updateSelectedUI() {
+      const cnt = selectedContainerIds.size;
+      const btn = document.getElementById('btnBatchDelete');
+      const badge = document.getElementById('selectedCountBadge');
+      const selectAll = document.getElementById('selectAllCheckbox');
+
+      if (badge) badge.textContent = cnt;
+      if (btn) btn.style.display = cnt > 0 ? 'inline-flex' : 'none';
+
+      if (selectAll && currentRenderedList.length > 0) {
+        const allSelected = currentRenderedList.every(c => selectedContainerIds.has(c.id));
+        const someSelected = currentRenderedList.some(c => selectedContainerIds.has(c.id));
+        selectAll.checked = allSelected;
+        selectAll.indeterminate = !allSelected && someSelected;
+      } else if (selectAll) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+      }
+    }
+
+    async function batchDeleteSelected() {
+      const ids = Array.from(selectedContainerIds);
+      if (ids.length === 0) return;
+
+      const confirmMsg = ids.length === 1 
+        ? 'Вы точно хотите удалить выбранный контейнер?' 
+        : `Вы точно хотите удалить выбранные контейнеры (${ids.length} шт.)?`;
+      if (!confirm(confirmMsg)) return;
+
+      const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
+      const api = getApiBase();
+
+      if (isOfflineMode) {
+        allContainers = allContainers.filter(x => !selectedContainerIds.has(x.id));
+        saveLocalData(allContainers);
+        selectedContainerIds.clear();
+        updateSelectedUI();
+        applyFilters();
+        updateOfflineStats();
+        alert(`Успешно удалено контейнеров: ${ids.length} шт.`);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${api}/containers/batch-delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            container_ids: ids,
+            user: empName,
+            reason: 'Пакетное удаление'
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          selectedContainerIds.clear();
+          updateSelectedUI();
+          fetchContainers();
+          alert(`Успешно удалено контейнеров: ${data.deleted_count || ids.length} шт.`);
+        } else {
+          let deletedCnt = 0;
+          for (const cid of ids) {
+            const r = await fetch(`${api}/containers/${cid}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user: empName, reason: 'Пакетное удаление' })
+            });
+            if (r.ok) deletedCnt++;
+          }
+          selectedContainerIds.clear();
+          updateSelectedUI();
+          fetchContainers();
+          alert(`Успешно удалено контейнеров: ${deletedCnt} из ${ids.length} шт.`);
+        }
+      } catch (e) {
+        alert('Ошибка связи при удалении: ' + e.message);
+      }
+    }
+
     function renderTable(list) {
+      currentRenderedList = list;
       const tbody = document.getElementById('tableBody');
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
         document.getElementById('footerCount').textContent = 'Всего контейнеров: 0';
+        updateSelectedUI();
         return;
       }
 
@@ -1176,6 +1283,7 @@
         const hasReturned = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
         const isLate = (c.destination === 'Хайратон' && !hasReturned && daysInTransit > 30);
         const rowClass = isLate ? 'late' : '';
+        const isChecked = selectedContainerIds.has(c.id);
 
         let statusBadge = `<span class="badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;">Груженный</span>`;
         if (c.status === 'Порожний') {
@@ -1191,6 +1299,9 @@
 
         return `
           <tr class="${rowClass}" onclick="openEditModal(${c.id})">
+            <td style="text-align: center;" onclick="event.stopPropagation()">
+              <input type="checkbox" class="row-checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="toggleRowSelect(${c.id}, this.checked)" style="cursor: pointer; width: 16px; height: 16px; vertical-align: middle;">
+            </td>
             <td><strong>${escapeHtml(c.container_no)}</strong></td>
             <td>${escapeHtml(c.client || '-')}</td>
             <td>${escapeHtml(c.cargo_name || '-')}</td>
@@ -1207,6 +1318,7 @@
       }).join('');
 
       document.getElementById('footerCount').textContent = `Всего отображается: ${list.length} контейнеров`;
+      updateSelectedUI();
     }
 
     function applyFilters() {
@@ -1246,7 +1358,7 @@
     }
 
     function openAddModal() {
-      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры (до 20 шт)';
+      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры / вагоны';
       document.getElementById('editContainerId').value = '';
       document.getElementById('f_no').value = '';
       document.getElementById('f_no').rows = 3;
@@ -1377,14 +1489,10 @@
         }
 
       } else {
-        // Добавление новых контейнеров (до 20 шт)
+        // Добавление новых контейнеров / вагонов без ограничений
         const numbers = parseContainerNumbers(rawNo);
         if (numbers.length === 0) {
-          alert('Укажите хотя бы один номер контейнера!');
-          return;
-        }
-        if (numbers.length > 20) {
-          alert(`Вы ввели ${numbers.length} номеров. Максимально разрешено до 20 номеров за раз!`);
+          alert('Укажите хотя бы один номер контейнера или вагона!');
           return;
         }
 

@@ -429,7 +429,7 @@ def open_container_dialog(container_data=None):
     container_id = container_data["id"] if is_edit else None
 
     dialog = tk.Toplevel(main_window)
-    dialog.title("Данные контейнера" if is_edit else "➕ Добавить контейнеры (до 20 шт)")
+    dialog.title("Данные контейнера" if is_edit else "➕ Добавить контейнеры / вагоны")
     dialog.geometry("580x620")
     dialog.resizable(False, False)
     dialog.grab_set()
@@ -443,7 +443,7 @@ def open_container_dialog(container_data=None):
         widget.grid(row=row_idx, column=1, sticky="ew", pady=5)
         grid_frame.columnconfigure(1, weight=1)
 
-    # 1. Номер / Номера (до 20 шт)
+    # 1. Номер / Номера (любое количество)
     if is_edit:
         entry_no = ttk.Entry(grid_frame, font=("Segoe UI", 10))
         entry_no.insert(0, container_data.get("container_no", ""))
@@ -452,22 +452,18 @@ def open_container_dialog(container_data=None):
         no_frame = tk.Frame(grid_frame)
         text_no = tk.Text(no_frame, height=3, width=35, font=("Consolas", 10), wrap="word")
         text_no.pack(fill="x", expand=True)
-        lbl_batch_cnt = tk.Label(no_frame, text="Распознано: 0 / 20 (через запятую или пробел)", font=("Segoe UI", 8), fg="#2563eb")
+        lbl_batch_cnt = tk.Label(no_frame, text="Распознано: 0 шт. (вставляйте через Enter, пробел или запятую)", font=("Segoe UI", 8), fg="#2563eb")
         lbl_batch_cnt.pack(anchor="w", pady=(2, 0))
 
         def on_no_change(*_):
             val = text_no.get("1.0", "end")
-            nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', val) if n.strip()]
-            seen = set()
-            unique_nums = [n for n in nums if not (n in seen or seen.add(n))]
-            cnt = len(unique_nums)
-            if cnt > 20:
-                lbl_batch_cnt.config(text=f"⚠️ Распознано: {cnt} / 20 (Превышен лимит!)", fg="#dc2626")
-            else:
-                lbl_batch_cnt.config(text=f"Распознано: {cnt} / 20 номеров", fg="#2563eb")
+            nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s\t]+', val) if n.strip()]
+            cnt = len(nums)
+            lbl_batch_cnt.config(text=f"Распознано номеров: {cnt} шт.", fg="#1e40af" if cnt > 0 else "#64748b")
 
         text_no.bind("<KeyRelease>", on_no_change)
-        add_row(0, "Номера (до 20 шт) *", no_frame)
+        text_no.bind("<FocusOut>", on_no_change)
+        add_row(0, "Номера контейнеров / вагонов *", no_frame)
 
     # 2. Грузополучатель (с запоминанием)
     combo_client = ttk.Combobox(grid_frame, values=get_remembered_clients(), font=("Segoe UI", 10))
@@ -620,19 +616,10 @@ def open_container_dialog(container_data=None):
                 messagebox.showerror("Ошибка сети", str(ex), parent=dialog)
         else:
             raw_val = text_no.get("1.0", "end")
-            nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', raw_val) if n.strip()]
-            seen = set()
-            numbers = []
-            for n in nums:
-                if n not in seen:
-                    seen.add(n)
-                    numbers.append(n)
+            numbers = [n.strip().upper() for n in re.split(r'[\r\n,;\s\t]+', raw_val) if n.strip()]
 
             if not numbers:
-                messagebox.showwarning("Внимание", "Укажите хотя бы один номер контейнера!", parent=dialog)
-                return
-            if len(numbers) > 20:
-                messagebox.showwarning("Лимит", f"Вы указали {len(numbers)} номеров. Максимум допускается 20 номеров за один раз!", parent=dialog)
+                messagebox.showwarning("Внимание", "Укажите хотя бы один номер контейнера или вагона!", parent=dialog)
                 return
 
             payload = {
@@ -715,6 +702,58 @@ def open_container_dialog(container_data=None):
         ttk.Button(btn_panel, text="📜 История", width=14, command=show_history_action).pack(side="left", padx=5)
 
     ttk.Button(btn_panel, text="Закрыть", width=12, command=dialog.destroy).pack(side="right", padx=5)
+
+
+# ================== ПАКЕТНОЕ УДАЛЕНИЕ ВЫБРАННЫХ ==================
+def delete_selected_containers():
+    selected_items = tree.selection()
+    if not selected_items:
+        messagebox.showinfo("Инфо", "Выберите один или несколько контейнеров в таблице (удерживайте Ctrl или Shift для выбора нескольких).", parent=main_window)
+        return
+
+    containers_to_delete = []
+    for item in selected_items:
+        c = _row_id_map.get(item)
+        if c and "id" in c:
+            containers_to_delete.append(c)
+
+    if not containers_to_delete:
+        return
+
+    count = len(containers_to_delete)
+    confirm_msg = (
+        f"Вы точно хотите удалить выбранный контейнер {containers_to_delete[0].get('container_no', '')}?"
+        if count == 1
+        else f"Вы точно хотите удалить выбранные контейнеры ({count} шт.)?"
+    )
+    if not messagebox.askyesno("Подтверждение удаления", confirm_msg, parent=main_window):
+        return
+
+    ids = [c["id"] for c in containers_to_delete]
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/containers/batch-delete",
+            json={"container_ids": ids, "user": current_user, "reason": "Пакетное удаление"},
+            timeout=HTTP_TIMEOUT
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            messagebox.showinfo("Успех", f"Успешно удалено контейнеров: {data.get('deleted_count', len(ids))} шт.", parent=main_window)
+            load_data()
+        else:
+            deleted_cnt = 0
+            for cid in ids:
+                r = requests.delete(
+                    f"{BASE_URL}/containers/{cid}",
+                    json={"user": current_user, "reason": "Пакетное удаление"},
+                    timeout=HTTP_TIMEOUT
+                )
+                if r.status_code == 200:
+                    deleted_cnt += 1
+            messagebox.showinfo("Результат", f"Успешно удалено: {deleted_cnt} из {len(ids)} шт.", parent=main_window)
+            load_data()
+    except Exception as ex:
+        messagebox.showerror("Ошибка сети", f"Не удалось удалить контейнеры:\n{ex}", parent=main_window)
 
 
 # ================== ЭКСПОРТ В EXCEL ==================
@@ -983,6 +1022,7 @@ def start_main_application():
     btn_panel.pack_propagate(False)
 
     ttk.Button(btn_panel, text="➕  Добавить контейнер", style="Accent.TButton", command=lambda: open_container_dialog(None)).pack(side="left", padx=8, pady=9)
+    ttk.Button(btn_panel, text="🗑  Удалить выбранные", command=delete_selected_containers).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="🔄  Обновить", command=load_data).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="📊  Экспорт в Excel", command=export_to_excel).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="📈  Интерактивный график", command=show_chart).pack(side="left", padx=5, pady=9)
@@ -1104,7 +1144,7 @@ def start_main_application():
         columns=columns,
         show="headings",
         style="Main.Treeview",
-        selectmode="browse"
+        selectmode="extended"
     )
 
     for col in columns:
