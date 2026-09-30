@@ -270,6 +270,7 @@
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openAddModal()">➕ Добавить контейнер</button>
     <button class="btn btn-danger" id="btnBatchDelete" style="display:none;" onclick="batchDeleteSelected()">🗑 Удалить выбранные (<span id="selectedCountBadge">0</span>)</button>
+    <button class="btn btn-secondary" onclick="openDictionaryModal()">🗂 Память / Очистить</button>
     <button class="btn btn-secondary" onclick="fetchContainers()">🔄 Обновить</button>
     <button class="btn btn-secondary" onclick="exportToExcel()">📊 Экспорт в Excel</button>
     <button class="btn btn-secondary" onclick="openChartModal()">📈 Интерактивный график</button>
@@ -391,12 +392,18 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="f_client">Грузополучатель (с историей)</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label for="f_client" style="margin-bottom: 0;">Грузополучатель</label>
+              <a href="javascript:void(0)" onclick="openDictionaryModal('clients')" style="font-size: 0.78rem; color: #2563eb; text-decoration: none; font-weight: 500;" title="Очистить или настроить список грузополучателей">🧹 Очистить / Список</a>
+            </div>
             <input type="text" id="f_client" list="clientsDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите нового">
             <datalist id="clientsDatalist"></datalist>
           </div>
           <div class="form-group">
-            <label for="f_cargo">Наименование груза (с историей)</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label for="f_cargo" style="margin-bottom: 0;">Наименование груза</label>
+              <a href="javascript:void(0)" onclick="openDictionaryModal('cargos')" style="font-size: 0.78rem; color: #2563eb; text-decoration: none; font-weight: 500;" title="Очистить или настроить список грузов">🧹 Очистить / Список</a>
+            </div>
             <input type="text" id="f_cargo" list="cargosDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите груз">
             <datalist id="cargosDatalist"></datalist>
           </div>
@@ -508,6 +515,62 @@
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="saveServerConfig()">Подключиться</button>
         <button class="btn btn-secondary" onclick="closeModal('serverSettingsModal')">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: УПРАВЛЕНИЕ СПРАВОЧНИКАМИ И ИСТОРИЕЙ ВВОДА -->
+  <div class="modal-backdrop" id="dictionaryModal">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <span>🗂</span> <span>Управление памятью ввода (Справочники)</span>
+        </h3>
+        <button class="close-btn" onclick="closeModal('dictionaryModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size: 0.88rem; color: #64748b; margin-bottom: 16px; line-height: 1.45;">
+          Здесь хранятся названия, которые система запоминает при вводе. Вы можете удалить ошибочные названия крестиком или полностью очистить список в любое время, если он переполнен.
+        </p>
+
+        <!-- Табы: Грузополучатели / Наименования грузов -->
+        <div style="display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; gap: 8px;">
+          <button type="button" id="tabDictClients" onclick="switchDictTab('clients')" style="padding: 8px 16px; font-weight: 600; font-size: 0.92rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid #2563eb; color: #2563eb;">
+            🏢 Грузополучатели (<span id="dictClientsCount">0</span>)
+          </button>
+          <button type="button" id="tabDictCargos" onclick="switchDictTab('cargos')" style="padding: 8px 16px; font-weight: 600; font-size: 0.92rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
+            📦 Наименования грузов (<span id="dictCargosCount">0</span>)
+          </button>
+        </div>
+
+        <!-- Контейнер вкладки Грузополучатели -->
+        <div id="dictClientsPane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.85rem; color: #475569; font-weight: 600;">Сохраненные грузополучатели:</span>
+            <button class="btn btn-danger" style="padding: 5px 12px; font-size: 0.82rem;" onclick="clearAllRememberedClients()">
+              🗑 Очистить всех грузополучателей
+            </button>
+          </div>
+          <div id="dictClientsList" style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
+            <!-- Список генерируется JS -->
+          </div>
+        </div>
+
+        <!-- Контейнер вкладки Грузы -->
+        <div id="dictCargosPane" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.85rem; color: #475569; font-weight: 600;">Сохраненные наименования грузов:</span>
+            <button class="btn btn-danger" style="padding: 5px 12px; font-size: 0.82rem;" onclick="clearAllRememberedCargos()">
+              🗑 Очистить все грузы
+            </button>
+          </div>
+          <div id="dictCargosList" style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
+            <!-- Список генерируется JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeModal('dictionaryModal')">Закрыть</button>
       </div>
     </div>
   </div>
@@ -1005,13 +1068,27 @@
       localStorage.setItem('dislocation_containers_cache', JSON.stringify(data));
     }
 
-    // ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ ==================
+    // ================== ЗАПОМИНАНИЕ И УПРАВЛЕНИЕ СПРАВОЧНИКАМИ (ОЧИСТКА В ЛЮБОЕ ВРЕМЯ) ==================
+    function getHiddenClients() {
+      try {
+        const stored = localStorage.getItem('dislocation_clients_hidden');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function saveHiddenClients(list) {
+      localStorage.setItem('dislocation_clients_hidden', JSON.stringify(list));
+    }
+
     function getRememberedClients() {
       try {
         const stored = localStorage.getItem('dislocation_clients_history');
         const list = stored ? JSON.parse(stored) : [];
         const fromContainers = allContainers.map(c => (c.client || '').trim()).filter(Boolean);
-        return Array.from(new Set([...list, ...fromContainers])).sort();
+        const hidden = getHiddenClients();
+        const combined = Array.from(new Set([...list, ...fromContainers]));
+        return combined.filter(item => !hidden.includes(item)).sort();
       } catch (e) {
         return [];
       }
@@ -1020,12 +1097,59 @@
     function rememberClient(name) {
       if (!name || !name.trim()) return;
       const clean = name.trim();
-      const list = getRememberedClients();
-      if (!list.includes(clean)) {
-        list.push(clean);
-        localStorage.setItem('dislocation_clients_history', JSON.stringify(list));
-      }
+      const hidden = getHiddenClients().filter(x => x !== clean);
+      saveHiddenClients(hidden);
+
+      try {
+        const stored = localStorage.getItem('dislocation_clients_history');
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.includes(clean)) {
+          list.push(clean);
+          localStorage.setItem('dislocation_clients_history', JSON.stringify(list));
+        }
+      } catch (e) {}
       refreshSuggestions();
+    }
+
+    function removeRememberedClient(name) {
+      const clean = (name || '').trim();
+      if (!clean) return;
+      const hidden = getHiddenClients();
+      if (!hidden.includes(clean)) {
+        hidden.push(clean);
+        saveHiddenClients(hidden);
+      }
+      try {
+        const stored = localStorage.getItem('dislocation_clients_history');
+        let list = stored ? JSON.parse(stored) : [];
+        list = list.filter(x => x !== clean);
+        localStorage.setItem('dislocation_clients_history', JSON.stringify(list));
+      } catch (e) {}
+      refreshSuggestions();
+      renderDictionaryLists();
+    }
+
+    function clearAllRememberedClients() {
+      if (!confirm('Вы точно хотите очистить весь список сохраненных грузополучателей?')) return;
+      const allCurrent = getRememberedClients();
+      const hidden = Array.from(new Set([...getHiddenClients(), ...allCurrent]));
+      saveHiddenClients(hidden);
+      localStorage.setItem('dislocation_clients_history', JSON.stringify([]));
+      refreshSuggestions();
+      renderDictionaryLists();
+      alert('Список грузополучателей успешно очищен!');
+    }
+
+    function getHiddenCargos() {
+      try {
+        const stored = localStorage.getItem('dislocation_cargos_hidden');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function saveHiddenCargos(list) {
+      localStorage.setItem('dislocation_cargos_hidden', JSON.stringify(list));
     }
 
     function getRememberedCargos() {
@@ -1033,7 +1157,9 @@
         const stored = localStorage.getItem('dislocation_cargos_history');
         const list = stored ? JSON.parse(stored) : [];
         const fromContainers = allContainers.map(c => (c.cargo_name || '').trim()).filter(Boolean);
-        return Array.from(new Set([...list, ...fromContainers])).sort();
+        const hidden = getHiddenCargos();
+        const combined = Array.from(new Set([...list, ...fromContainers]));
+        return combined.filter(item => !hidden.includes(item)).sort();
       } catch (e) {
         return [];
       }
@@ -1042,12 +1168,47 @@
     function rememberCargo(name) {
       if (!name || !name.trim()) return;
       const clean = name.trim();
-      const list = getRememberedCargos();
-      if (!list.includes(clean)) {
-        list.push(clean);
-        localStorage.setItem('dislocation_cargos_history', JSON.stringify(list));
-      }
+      const hidden = getHiddenCargos().filter(x => x !== clean);
+      saveHiddenCargos(hidden);
+
+      try {
+        const stored = localStorage.getItem('dislocation_cargos_history');
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.includes(clean)) {
+          list.push(clean);
+          localStorage.setItem('dislocation_cargos_history', JSON.stringify(list));
+        }
+      } catch (e) {}
       refreshSuggestions();
+    }
+
+    function removeRememberedCargo(name) {
+      const clean = (name || '').trim();
+      if (!clean) return;
+      const hidden = getHiddenCargos();
+      if (!hidden.includes(clean)) {
+        hidden.push(clean);
+        saveHiddenCargos(hidden);
+      }
+      try {
+        const stored = localStorage.getItem('dislocation_cargos_history');
+        let list = stored ? JSON.parse(stored) : [];
+        list = list.filter(x => x !== clean);
+        localStorage.setItem('dislocation_cargos_history', JSON.stringify(list));
+      } catch (e) {}
+      refreshSuggestions();
+      renderDictionaryLists();
+    }
+
+    function clearAllRememberedCargos() {
+      if (!confirm('Вы точно хотите очистить весь список сохраненных наименований грузов?')) return;
+      const allCurrent = getRememberedCargos();
+      const hidden = Array.from(new Set([...getHiddenCargos(), ...allCurrent]));
+      saveHiddenCargos(hidden);
+      localStorage.setItem('dislocation_cargos_history', JSON.stringify([]));
+      refreshSuggestions();
+      renderDictionaryLists();
+      alert('Список наименований грузов успешно очищен!');
     }
 
     function refreshSuggestions() {
@@ -1065,6 +1226,84 @@
       fillDatalist('filterClientsDatalist', clients);
       fillDatalist('cargosDatalist', cargos);
       fillDatalist('filterCargosDatalist', cargos);
+    }
+
+    let currentDictTab = 'clients';
+
+    function switchDictTab(tab) {
+      currentDictTab = tab;
+      const tabClients = document.getElementById('tabDictClients');
+      const tabCargos = document.getElementById('tabDictCargos');
+      const paneClients = document.getElementById('dictClientsPane');
+      const paneCargos = document.getElementById('dictCargosPane');
+
+      if (tab === 'clients') {
+        if (tabClients) {
+          tabClients.style.borderBottom = '3px solid #2563eb';
+          tabClients.style.color = '#2563eb';
+        }
+        if (tabCargos) {
+          tabCargos.style.borderBottom = '3px solid transparent';
+          tabCargos.style.color = '#64748b';
+        }
+        if (paneClients) paneClients.style.display = 'block';
+        if (paneCargos) paneCargos.style.display = 'none';
+      } else {
+        if (tabCargos) {
+          tabCargos.style.borderBottom = '3px solid #2563eb';
+          tabCargos.style.color = '#2563eb';
+        }
+        if (tabClients) {
+          tabClients.style.borderBottom = '3px solid transparent';
+          tabClients.style.color = '#64748b';
+        }
+        if (paneCargos) paneCargos.style.display = 'block';
+        if (paneClients) paneClients.style.display = 'none';
+      }
+      renderDictionaryLists();
+    }
+
+    function openDictionaryModal(defaultTab = 'clients') {
+      switchDictTab(defaultTab);
+      openModal('dictionaryModal');
+    }
+
+    function renderDictionaryLists() {
+      const clients = getRememberedClients();
+      const cargos = getRememberedCargos();
+
+      const cntClientsEl = document.getElementById('dictClientsCount');
+      const cntCargosEl = document.getElementById('dictCargosCount');
+      if (cntClientsEl) cntClientsEl.textContent = clients.length;
+      if (cntCargosEl) cntCargosEl.textContent = cargos.length;
+
+      const clientsContainer = document.getElementById('dictClientsList');
+      if (clientsContainer) {
+        if (clients.length === 0) {
+          clientsContainer.innerHTML = `<div style="text-align: center; padding: 25px; color: #94a3b8; font-size: 0.88rem;">Список пуст. Новые названия будут сохраняться автоматически при вводе.</div>`;
+        } else {
+          clientsContainer.innerHTML = clients.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px;">
+              <span style="font-weight: 500; font-size: 0.9rem; color: #1e293b;">${escapeHtml(item)}</span>
+              <button onclick="removeRememberedClient('${escapeHtml(item)}')" title="Удалить из подсказок" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.82rem; font-weight: bold;">✕ Удалить</button>
+            </div>
+          `).join('');
+        }
+      }
+
+      const cargosContainer = document.getElementById('dictCargosList');
+      if (cargosContainer) {
+        if (cargos.length === 0) {
+          cargosContainer.innerHTML = `<div style="text-align: center; padding: 25px; color: #94a3b8; font-size: 0.88rem;">Список пуст. Новые названия грузов будут сохраняться автоматически при вводе.</div>`;
+        } else {
+          cargosContainer.innerHTML = cargos.map(item => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px;">
+              <span style="font-weight: 500; font-size: 0.9rem; color: #1e293b;">${escapeHtml(item)}</span>
+              <button onclick="removeRememberedCargo('${escapeHtml(item)}')" title="Удалить из подсказок" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.82rem; font-weight: bold;">✕ Удалить</button>
+            </div>
+          `).join('');
+        }
+      }
     }
 
     // ================== ПАРСИНГ НОМЕРОВ КОНТЕЙНЕРОВ / ВАГОНОВ ==================

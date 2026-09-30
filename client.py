@@ -84,11 +84,12 @@ BARGES = [
 ]
 
 
-# ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ ==================
+# ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ (С ОЧИСТКОЙ В ЛЮБОЕ ВРЕМЯ) ==================
 def get_remembered_clients():
     history = app_config.get("clients_history", [])
     from_containers = [c.get("client", "").strip() for c in _raw_containers if c.get("client")]
-    combined = sorted(list(set(history + from_containers)))
+    hidden = set(app_config.get("clients_hidden", []))
+    combined = sorted(list((set(history + from_containers) - hidden)))
     return combined if combined else ["OOO 'Global Trade'", "Asia Trans Logistics", "Silk Road Express"]
 
 
@@ -96,17 +97,43 @@ def remember_client(name):
     if not name or not name.strip():
         return
     clean = name.strip()
+    hidden = set(app_config.get("clients_hidden", []))
+    if clean in hidden:
+        hidden.remove(clean)
+        app_config["clients_hidden"] = list(hidden)
     history = app_config.get("clients_history", [])
     if clean not in history:
         history.append(clean)
         app_config["clients_history"] = history
-        save_config(app_config)
+    save_config(app_config)
+
+
+def remove_remembered_client(name):
+    clean = (name or "").strip()
+    if not clean:
+        return
+    hidden = set(app_config.get("clients_hidden", []))
+    hidden.add(clean)
+    app_config["clients_hidden"] = list(hidden)
+    history = [x for x in app_config.get("clients_history", []) if x != clean]
+    app_config["clients_history"] = history
+    save_config(app_config)
+
+
+def clear_all_remembered_clients():
+    all_current = get_remembered_clients()
+    hidden = set(app_config.get("clients_hidden", []))
+    hidden.update(all_current)
+    app_config["clients_hidden"] = list(hidden)
+    app_config["clients_history"] = []
+    save_config(app_config)
 
 
 def get_remembered_cargos():
     history = app_config.get("cargos_history", [])
     from_containers = [c.get("cargo_name", "").strip() for c in _raw_containers if c.get("cargo_name")]
-    combined = sorted(list(set(history + from_containers)))
+    hidden = set(app_config.get("cargos_hidden", []))
+    combined = sorted(list((set(history + from_containers) - hidden)))
     return combined if combined else ["Мука пшеничная 1 сорт", "Сахар-песок", "Строительные материалы"]
 
 
@@ -114,11 +141,36 @@ def remember_cargo(name):
     if not name or not name.strip():
         return
     clean = name.strip()
+    hidden = set(app_config.get("cargos_hidden", []))
+    if clean in hidden:
+        hidden.remove(clean)
+        app_config["cargos_hidden"] = list(hidden)
     history = app_config.get("cargos_history", [])
     if clean not in history:
         history.append(clean)
         app_config["cargos_history"] = history
-        save_config(app_config)
+    save_config(app_config)
+
+
+def remove_remembered_cargo(name):
+    clean = (name or "").strip()
+    if not clean:
+        return
+    hidden = set(app_config.get("cargos_hidden", []))
+    hidden.add(clean)
+    app_config["cargos_hidden"] = list(hidden)
+    history = [x for x in app_config.get("cargos_history", []) if x != clean]
+    app_config["cargos_history"] = history
+    save_config(app_config)
+
+
+def clear_all_remembered_cargos():
+    all_current = get_remembered_cargos()
+    hidden = set(app_config.get("cargos_hidden", []))
+    hidden.update(all_current)
+    app_config["cargos_hidden"] = list(hidden)
+    app_config["cargos_history"] = []
+    save_config(app_config)
 
 
 # ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
@@ -466,16 +518,22 @@ def open_container_dialog(container_data=None):
         add_row(0, "Номера контейнеров / вагонов *", no_frame)
 
     # 2. Грузополучатель (с запоминанием)
-    combo_client = ttk.Combobox(grid_frame, values=get_remembered_clients(), font=("Segoe UI", 10))
+    f_cl = tk.Frame(grid_frame)
+    combo_client = ttk.Combobox(f_cl, values=get_remembered_clients(), font=("Segoe UI", 10))
+    combo_client.pack(side="left", fill="x", expand=True)
     if is_edit and container_data.get("client") and container_data["client"] != "-":
         combo_client.set(container_data.get("client", ""))
-    add_row(1, "Грузополучатель", combo_client)
+    ttk.Button(f_cl, text="🧹 Очистить", width=12, command=lambda: (open_dictionary_window(), combo_client.config(values=get_remembered_clients()))).pack(side="right", padx=(5, 0))
+    add_row(1, "Грузополучатель", f_cl)
 
     # 3. Наименование груза (с запоминанием)
-    combo_cargo = ttk.Combobox(grid_frame, values=get_remembered_cargos(), font=("Segoe UI", 10))
+    f_cg = tk.Frame(grid_frame)
+    combo_cargo = ttk.Combobox(f_cg, values=get_remembered_cargos(), font=("Segoe UI", 10))
+    combo_cargo.pack(side="left", fill="x", expand=True)
     if is_edit and container_data.get("cargo_name") and container_data["cargo_name"] != "-":
         combo_cargo.set(container_data.get("cargo_name", ""))
-    add_row(2, "Наименование груза", combo_cargo)
+    ttk.Button(f_cg, text="🧹 Очистить", width=12, command=lambda: (open_dictionary_window(), combo_cargo.config(values=get_remembered_cargos()))).pack(side="right", padx=(5, 0))
+    add_row(2, "Наименование груза", f_cg)
 
     # 4. Баржа
     combo_barge = ttk.Combobox(grid_frame, values=BARGES, font=("Segoe UI", 10), state="readonly")
@@ -756,6 +814,112 @@ def delete_selected_containers():
         messagebox.showerror("Ошибка сети", f"Не удалось удалить контейнеры:\n{ex}", parent=main_window)
 
 
+# ================== ОКНО УПРАВЛЕНИЯ СПРАВОЧНИКАМИ (ОЧИСТКА В ЛЮБОЕ ВРЕМЯ) ==================
+def open_dictionary_window():
+    win = tk.Toplevel(main_window)
+    win.title("🗂 Управление памятью ввода (Справочники)")
+    win.geometry("560x520")
+    win.resizable(False, False)
+    win.grab_set()
+
+    nb = ttk.Notebook(win)
+    nb.pack(fill="both", expand=True, padx=15, pady=15)
+
+    # Вкладка Клиенты
+    f_clients = ttk.Frame(nb, padding=10)
+    nb.add(f_clients, text="🏢 Грузополучатели")
+
+    lbl_cl_info = tk.Label(f_clients, text="Сохраненные грузополучатели (выберите для удаления):", font=("Segoe UI", 9, "bold"))
+    lbl_cl_info.pack(anchor="w", pady=(0, 5))
+
+    frame_cl_list = tk.Frame(f_clients)
+    frame_cl_list.pack(fill="both", expand=True)
+
+    lb_clients = tk.Listbox(frame_cl_list, font=("Segoe UI", 10), height=14)
+    lb_clients.pack(fill="both", expand=True, side="left")
+    sb_cl = ttk.Scrollbar(frame_cl_list, orient="vertical", command=lb_clients.yview)
+    sb_cl.pack(side="right", fill="y")
+    lb_clients.config(yscrollcommand=sb_cl.set)
+
+    def refresh_clients_lb():
+        lb_clients.delete(0, "end")
+        for item in get_remembered_clients():
+            lb_clients.insert("end", item)
+
+    refresh_clients_lb()
+
+    def do_remove_client():
+        sel = lb_clients.curselection()
+        if not sel:
+            messagebox.showinfo("Инфо", "Выберите грузополучателя из списка для удаления", parent=win)
+            return
+        val = lb_clients.get(sel[0])
+        remove_remembered_client(val)
+        refresh_clients_lb()
+        if 'filter_client_combo' in globals():
+            filter_client_combo["values"] = ["Все клиенты"] + get_remembered_clients()
+
+    def do_clear_clients():
+        if messagebox.askyesno("Подтверждение", "Вы точно хотите очистить всех сохраненных грузополучателей?", parent=win):
+            clear_all_remembered_clients()
+            refresh_clients_lb()
+            if 'filter_client_combo' in globals():
+                filter_client_combo["values"] = ["Все клиенты"] + get_remembered_clients()
+            messagebox.showinfo("Успешно", "Список грузополучателей очищен!", parent=win)
+
+    btn_cl_box = tk.Frame(f_clients)
+    btn_cl_box.pack(fill="x", pady=(10, 0))
+    ttk.Button(btn_cl_box, text="❌ Удалить выбранного", command=do_remove_client).pack(side="left", padx=4)
+    ttk.Button(btn_cl_box, text="🗑 Очистить весь список", command=do_clear_clients).pack(side="right", padx=4)
+
+    # Вкладка Грузы
+    f_cargos = ttk.Frame(nb, padding=10)
+    nb.add(f_cargos, text="📦 Наименования грузов")
+
+    lbl_cg_info = tk.Label(f_cargos, text="Сохраненные грузы (выберите для удаления):", font=("Segoe UI", 9, "bold"))
+    lbl_cg_info.pack(anchor="w", pady=(0, 5))
+
+    frame_cg_list = tk.Frame(f_cargos)
+    frame_cg_list.pack(fill="both", expand=True)
+
+    lb_cargos = tk.Listbox(frame_cg_list, font=("Segoe UI", 10), height=14)
+    lb_cargos.pack(fill="both", expand=True, side="left")
+    sb_cg = ttk.Scrollbar(frame_cg_list, orient="vertical", command=lb_cargos.yview)
+    sb_cg.pack(side="right", fill="y")
+    lb_cargos.config(yscrollcommand=sb_cg.set)
+
+    def refresh_cargos_lb():
+        lb_cargos.delete(0, "end")
+        for item in get_remembered_cargos():
+            lb_cargos.insert("end", item)
+
+    refresh_cargos_lb()
+
+    def do_remove_cargo():
+        sel = lb_cargos.curselection()
+        if not sel:
+            messagebox.showinfo("Инфо", "Выберите наименование груза из списка для удаления", parent=win)
+            return
+        val = lb_cargos.get(sel[0])
+        remove_remembered_cargo(val)
+        refresh_cargos_lb()
+        if 'filter_cargo_combo' in globals():
+            filter_cargo_combo["values"] = ["Все грузы"] + get_remembered_cargos()
+
+    def do_clear_cargos():
+        if messagebox.askyesno("Подтверждение", "Вы точно хотите очистить все сохраненные наименования грузов?", parent=win):
+            clear_all_remembered_cargos()
+            refresh_cargos_lb()
+            if 'filter_cargo_combo' in globals():
+                filter_cargo_combo["values"] = ["Все грузы"] + get_remembered_cargos()
+            messagebox.showinfo("Успешно", "Список наименований грузов очищен!", parent=win)
+
+    btn_cg_box = tk.Frame(f_cargos)
+    btn_cg_box.pack(fill="x", pady=(10, 0))
+    ttk.Button(btn_cg_box, text="❌ Удалить выбранный", command=do_remove_cargo).pack(side="left", padx=4)
+    ttk.Button(btn_cg_box, text="🗑 Очистить весь список", command=do_clear_cargos).pack(side="right", padx=4)
+
+
 # ================== ЭКСПОРТ В EXCEL ==================
 def export_to_excel():
     if not HAS_EXCEL:
@@ -1023,6 +1187,7 @@ def start_main_application():
 
     ttk.Button(btn_panel, text="➕  Добавить контейнер", style="Accent.TButton", command=lambda: open_container_dialog(None)).pack(side="left", padx=8, pady=9)
     ttk.Button(btn_panel, text="🗑  Удалить выбранные", command=delete_selected_containers).pack(side="left", padx=5, pady=9)
+    ttk.Button(btn_panel, text="🗂  Память / Очистить", command=open_dictionary_window).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="🔄  Обновить", command=load_data).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="📊  Экспорт в Excel", command=export_to_excel).pack(side="left", padx=5, pady=9)
     ttk.Button(btn_panel, text="📈  Интерактивный график", command=show_chart).pack(side="left", padx=5, pady=9)
