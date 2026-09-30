@@ -303,7 +303,7 @@
   <div class="filter-bar">
     <div class="filter-group">
       <span>🔍</span>
-      <input type="text" id="searchInput" class="input-control search-input" placeholder="Поиск по номеру, клиенту, грузу, барже..." oninput="applyFilters()">
+      <input type="text" id="searchInput" class="input-control search-input" placeholder="Поиск по номеру, клиенту, грузу, барже..." oninput="applyFilters()" autocomplete="off" name="no_autofill_search_q" data-lpignore="true" data-1p-ignore="true" data-form-type="other" spellcheck="false">
     </div>
     <div class="filter-group">
       <label>Нахождение:</label>
@@ -323,12 +323,12 @@
     </div>
     <div class="filter-group">
       <label>Грузополучатель:</label>
-      <input list="filterClientsDatalist" id="filterClientInput" class="input-control" placeholder="Все клиенты" oninput="applyFilters()" style="max-width: 170px;">
+      <input list="filterClientsDatalist" id="filterClientInput" class="input-control" placeholder="Все клиенты" oninput="applyFilters()" style="max-width: 170px;" autocomplete="off" name="no_autofill_client_filter" data-lpignore="true" data-1p-ignore="true" data-form-type="other" spellcheck="false">
       <datalist id="filterClientsDatalist"></datalist>
     </div>
     <div class="filter-group">
       <label>Груз:</label>
-      <input list="filterCargosDatalist" id="filterCargoInput" class="input-control" placeholder="Все грузы" oninput="applyFilters()" style="max-width: 150px;">
+      <input list="filterCargosDatalist" id="filterCargoInput" class="input-control" placeholder="Все грузы" oninput="applyFilters()" style="max-width: 150px;" autocomplete="off" name="no_autofill_cargo_filter" data-lpignore="true" data-1p-ignore="true" data-form-type="other" spellcheck="false">
       <datalist id="filterCargosDatalist"></datalist>
     </div>
     <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
@@ -350,7 +350,7 @@
             <th>Причина</th>
             <th>Дата отправки</th>
             <th>Дата возврата</th>
-            <th>Дней в пути</th>
+            <th>Количество дней</th>
             <th>Добавлен пользователем</th>
           </tr>
         </thead>
@@ -387,6 +387,10 @@
           <textarea id="f_no" class="input-control" rows="3" style="width:100%; font-family: monospace; font-size: 0.92rem; text-transform: uppercase;" placeholder="Вставьте список номеров: например из Excel, 1С или столбиком..." oninput="updateBatchBadge()" onpaste="setTimeout(updateBatchBadge, 20)" onkeyup="updateBatchBadge()" onchange="updateBatchBadge()"></textarea>
           <div id="noBatchCount" style="font-size: 0.82rem; color: #475569; margin-top: 4px; font-weight: 500;">
             Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">0</span> шт.
+          </div>
+          <!-- Уведомление о повторном вводе вагона КРАСНЫМ ЦВЕТОМ -->
+          <div id="duplicateWagonWarning" style="display: none; margin-top: 8px; padding: 8px 12px; background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 6px; color: #dc2626; font-size: 0.88rem; font-weight: 700; line-height: 1.4;">
+            ⚠️ <span id="duplicateWagonText">Вы уже данный вагон вводили!</span>
           </div>
         </div>
 
@@ -456,7 +460,7 @@
         </div>
 
         <div id="modalInfoLine" style="font-size: 0.85rem; color: #475569; margin-top: 8px; font-style: italic;">
-          Дней в пути: <strong id="calcDays" style="color: #1e40af; font-size: 1rem;">1</strong>
+          Количество дней: <strong id="calcDays" style="color: #1e40af; font-size: 1rem;">1</strong>
         </div>
       </div>
 
@@ -597,47 +601,49 @@
         </div>
       </div>
 
-      <div class="modal-body" style="padding: 22px;">
-        <p id="authModalSubtext" style="font-size: 0.86rem; color: #64748b; margin-bottom: 16px; line-height: 1.45;">
-          Создайте учетную запись сотрудника. Ваше имя будет автоматически закрепляться за всеми добавленными вами контейнерами!
-        </p>
+      <form autocomplete="on" onsubmit="event.preventDefault(); handleAuthSubmit();" style="margin: 0;">
+        <div class="modal-body" style="padding: 22px;">
+          <p id="authModalSubtext" style="font-size: 0.86rem; color: #64748b; margin-bottom: 16px; line-height: 1.45;">
+            Создайте учетную запись сотрудника. Ваше имя будет автоматически закрепляться за всеми добавленными вами контейнерами!
+          </p>
 
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label id="authUsernameLabel" for="login_username" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Ваше ФИО / Логин *</label>
-          <input type="text" id="login_username" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Например: Дониёр Темиров" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label id="authUsernameLabel" for="login_username" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Ваше ФИО / Логин *</label>
+            <input type="text" id="login_username" name="username" autocomplete="username" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Например: Дониёр Темиров" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label id="authPasswordLabel" for="login_password" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Придумайте пароль *</label>
+            <input type="password" id="login_password" name="password" autocomplete="current-password" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Введите пароль" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+          </div>
+
+          <div class="form-group" id="confirmPassGroup" style="margin-bottom: 14px; display: block;">
+            <label for="login_password_confirm" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Повторите пароль *</label>
+            <input type="password" id="login_password_confirm" name="password_confirm" autocomplete="new-password" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Повторите пароль для проверки" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.88rem; color: #334155;">
+            <input type="checkbox" id="login_remember" checked style="width: 16px; height: 16px; cursor: pointer;">
+            <label for="login_remember" style="cursor: pointer; user-select: none;">Запомнить меня на этом устройстве</label>
+          </div>
+
+          <div id="login_error" style="color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
+          <div id="login_success" style="color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label id="authPasswordLabel" for="login_password" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Придумайте пароль *</label>
-          <input type="password" id="login_password" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Введите пароль" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+        <div class="modal-footer" style="background: #f8fafc; padding: 16px 22px; flex-direction: column; gap: 12px;">
+          <button type="submit" id="btnAuthSubmit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px; font-size: 0.95rem; font-weight: 600;">
+            ✨ Создать учетную запись и войти
+          </button>
+
+          <div style="text-align: center; font-size: 0.86rem; color: #64748b;">
+            <span id="authToggleHint">Уже зарегистрированы?</span>
+            <a href="javascript:void(0)" id="authToggleLink" onclick="toggleAuthMode()" style="color: #2563eb; font-weight: 600; text-decoration: none; margin-left: 4px;">
+              Войти в свой аккаунт
+            </a>
+          </div>
         </div>
-
-        <div class="form-group" id="confirmPassGroup" style="margin-bottom: 14px; display: block;">
-          <label for="login_password_confirm" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Повторите пароль *</label>
-          <input type="password" id="login_password_confirm" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Повторите пароль для проверки" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.88rem; color: #334155;">
-          <input type="checkbox" id="login_remember" checked style="width: 16px; height: 16px; cursor: pointer;">
-          <label for="login_remember" style="cursor: pointer; user-select: none;">Запомнить меня на этом устройстве</label>
-        </div>
-
-        <div id="login_error" style="color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
-        <div id="login_success" style="color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
-      </div>
-
-      <div class="modal-footer" style="background: #f8fafc; padding: 16px 22px; flex-direction: column; gap: 12px;">
-        <button id="btnAuthSubmit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px; font-size: 0.95rem; font-weight: 600;" onclick="handleAuthSubmit()">
-          ✨ Создать учетную запись и войти
-        </button>
-
-        <div style="text-align: center; font-size: 0.86rem; color: #64748b;">
-          <span id="authToggleHint">Уже зарегистрированы?</span>
-          <a href="javascript:void(0)" id="authToggleLink" onclick="toggleAuthMode()" style="color: #2563eb; font-weight: 600; text-decoration: none; margin-left: 4px;">
-            Войти в свой аккаунт
-          </a>
-        </div>
-      </div>
+      </form>
     </div>
   </div>
 
@@ -1323,23 +1329,55 @@
     }
 
     function updateBatchBadge() {
-      const isEdit = Boolean(document.getElementById('editContainerId').value);
+      const editId = document.getElementById('editContainerId').value;
+      const isEdit = Boolean(editId);
       const val = document.getElementById('f_no').value;
       const list = parseContainerNumbers(val);
       const badgeWrap = document.getElementById('noBatchCount');
+      const dupBox = document.getElementById('duplicateWagonWarning');
+      const dupText = document.getElementById('duplicateWagonText');
 
       if (isEdit) {
         if (badgeWrap) badgeWrap.style.display = 'none';
-        return;
+      } else {
+        if (badgeWrap) {
+          badgeWrap.style.display = 'block';
+          badgeWrap.style.color = '#475569';
+          if (list.length > 0) {
+            badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">${list.length}</span> шт.`;
+          } else {
+            badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#94a3b8; font-size:0.95rem;">0</span> шт.`;
+          }
+        }
       }
 
-      if (badgeWrap) {
-        badgeWrap.style.display = 'block';
-        badgeWrap.style.color = '#475569';
-        if (list.length > 0) {
-          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">${list.length}</span> шт.`;
+      // Проверка на повторный ввод номеров вагонов (КРАСНЫМ ЦВЕТОМ)
+      const existingSet = new Set(
+        allContainers
+          .filter(c => !isEdit || String(c.id) !== String(editId))
+          .map(c => (c.container_no || '').trim().toUpperCase())
+          .filter(Boolean)
+      );
+
+      const duplicates = [];
+      const seen = new Set();
+      for (const num of list) {
+        if (existingSet.has(num) && !seen.has(num)) {
+          duplicates.push(num);
+          seen.add(num);
+        }
+      }
+
+      if (dupBox && dupText) {
+        if (duplicates.length > 0) {
+          dupBox.style.display = 'block';
+          if (duplicates.length === 1) {
+            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данный вагон вводили:</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${escapeHtml(duplicates[0])}</strong>`;
+          } else {
+            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данные вагоны вводили (${duplicates.length} шт.):</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${duplicates.map(escapeHtml).join(', ')}</strong>`;
+          }
         } else {
-          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#94a3b8; font-size:0.95rem;">0</span> шт.`;
+          dupBox.style.display = 'none';
         }
       }
     }
@@ -1512,8 +1550,23 @@
       currentRenderedList = list;
       const tbody = document.getElementById('tableBody');
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
-        document.getElementById('footerCount').textContent = 'Всего контейнеров: 0';
+        if (allContainers.length > 0) {
+          tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 35px 20px; color: #475569; background: #f8fafc;">
+            <div style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+              🔍 Нет записей, соответствующих заданным фильтрам
+            </div>
+            <div style="font-size: 0.88rem; color: #64748b; margin-bottom: 14px;">
+              В базе находится <strong>${allContainers.length}</strong> контейнеров, но они скрыты фильтром или строкой поиска.
+            </div>
+            <button class="btn btn-primary" onclick="resetFilters()" style="padding: 7px 18px; font-weight: 600; font-size: 0.9rem;">
+              🔄 Сбросить фильтры и показать все записи
+            </button>
+          </td></tr>`;
+          document.getElementById('footerCount').textContent = `Найдено: 0 из ${allContainers.length} контейнеров`;
+        } else {
+          tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
+          document.getElementById('footerCount').textContent = 'Всего контейнеров: 0';
+        }
         updateSelectedUI();
         return;
       }
@@ -1613,6 +1666,8 @@
       document.getElementById('btnDelete').style.display = 'none';
       const hint = document.getElementById('noBatchHint');
       if (hint) hint.style.display = 'inline';
+      const dupBox = document.getElementById('duplicateWagonWarning');
+      if (dupBox) dupBox.style.display = 'none';
       updateBatchBadge();
       updateCalcDays();
       refreshSuggestions();
@@ -1675,12 +1730,26 @@
       const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
       const api = getApiBase();
 
+      // Проверка на повторный ввод номеров вагонов
+      const existingSet = new Set(
+        allContainers
+          .filter(c => !id || String(c.id) !== String(id))
+          .map(c => (c.container_no || '').trim().toUpperCase())
+          .filter(Boolean)
+      );
+
       if (id) {
         // Редактирование существующего одного контейнера
         const singleNo = rawNo.trim().toUpperCase();
         if (!singleNo) {
           alert('Введите номер контейнера!');
           return;
+        }
+
+        if (existingSet.has(singleNo)) {
+          if (!confirm(`⚠️ Внимание! Вы уже данный вагон вводили: ${singleNo}.\n\nВы уверены, что хотите сохранить эти данные?`)) {
+            return;
+          }
         }
 
         const payload = {
@@ -1707,7 +1776,7 @@
             saveLocalData(allContainers);
           }
           closeModal('containerModal');
-          applyFilters();
+          resetFilters();
           updateOfflineStats();
           return;
         }
@@ -1720,6 +1789,7 @@
           });
           if (res.ok) {
             closeModal('containerModal');
+            resetFilters();
             fetchContainers();
           } else {
             alert('Ошибка сохранения: ' + (await res.text()));
@@ -1734,6 +1804,18 @@
         if (numbers.length === 0) {
           alert('Укажите хотя бы один номер контейнера или вагона!');
           return;
+        }
+
+        const dups = numbers.filter(n => existingSet.has(n));
+        if (dups.length > 0) {
+          const uniqueDups = Array.from(new Set(dups));
+          const dupStr = uniqueDups.slice(0, 8).join(', ') + (uniqueDups.length > 8 ? ` и еще ${uniqueDups.length - 8} шт.` : '');
+          const msg = uniqueDups.length === 1
+            ? `⚠️ Внимание! Вы уже данный вагон вводили: ${uniqueDups[0]}.\n\nВы действительно хотите добавить его повторно?`
+            : `⚠️ Внимание! Вы уже данные вагоны вводили: ${dupStr}.\n\nВы действительно хотите добавить их повторно?`;
+          if (!confirm(msg)) {
+            return;
+          }
         }
 
         const basePayload = {
@@ -1760,7 +1842,7 @@
           });
           saveLocalData(allContainers);
           closeModal('containerModal');
-          applyFilters();
+          resetFilters();
           updateOfflineStats();
           return;
         }
@@ -1777,6 +1859,7 @@
 
           if (res.ok) {
             closeModal('containerModal');
+            resetFilters();
             fetchContainers();
           } else {
             let lastErr = '';
@@ -1800,6 +1883,7 @@
             }
             if (anySuccess) {
               closeModal('containerModal');
+              resetFilters();
               fetchContainers();
             } else {
               alert('Ошибка сохранения: ' + (lastErr || (await res.text())));
@@ -1854,7 +1938,7 @@
         'Причина': c.reason || '-',
         'Дата отправки': formatDate(c.sent_date),
         'Дата возврата': formatDate(c.return_date),
-        'Дней в пути': calculateDaysInTransit(c.sent_date, c.return_date),
+        'Количество дней': calculateDaysInTransit(c.sent_date, c.return_date),
         'Добавлен пользователем': c.added_by || '-'
       }));
       const ws = XLSX.utils.json_to_sheet(data);
@@ -1957,9 +2041,36 @@
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    // Защита от ошибочного автозаполнения браузером полей фильтров
+    function sanitizeFilterAutofill() {
+      const cInp = document.getElementById('filterCargoInput');
+      const clInp = document.getElementById('filterClientInput');
+      let changed = false;
+      if (cInp && cInp.value && allContainers.length > 0) {
+        const val = cInp.value.trim().toLowerCase();
+        const exists = allContainers.some(c => (c.cargo_name || '').trim().toLowerCase() === val);
+        if (!exists) {
+          cInp.value = '';
+          changed = true;
+        }
+      }
+      if (clInp && clInp.value && allContainers.length > 0) {
+        const val = clInp.value.trim().toLowerCase();
+        const exists = allContainers.some(c => (c.client || '').trim().toLowerCase() === val);
+        if (!exists) {
+          clInp.value = '';
+          changed = true;
+        }
+      }
+      if (changed) applyFilters();
+    }
+
     // Старт
     initUserSession();
-    fetchContainers();
+    fetchContainers().then(() => {
+      setTimeout(sanitizeFilterAutofill, 250);
+      setTimeout(sanitizeFilterAutofill, 1000);
+    });
     setInterval(fetchContainers, 30000); // автообновление раз в 30 сек
   </script>
 </body>

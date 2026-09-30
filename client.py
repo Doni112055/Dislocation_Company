@@ -506,12 +506,23 @@ def open_container_dialog(container_data=None):
         text_no.pack(fill="x", expand=True)
         lbl_batch_cnt = tk.Label(no_frame, text="Распознано: 0 шт. (вставляйте через Enter, пробел или запятую)", font=("Segoe UI", 8), fg="#2563eb")
         lbl_batch_cnt.pack(anchor="w", pady=(2, 0))
+        lbl_dup_warning = tk.Label(no_frame, text="", font=("Segoe UI", 9, "bold"), fg="#dc2626", wraplength=420, justify="left")
+        lbl_dup_warning.pack(anchor="w", pady=(2, 0))
 
         def on_no_change(*_):
             val = text_no.get("1.0", "end")
             nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s\t]+', val) if n.strip()]
             cnt = len(nums)
             lbl_batch_cnt.config(text=f"Распознано номеров: {cnt} шт.", fg="#1e40af" if cnt > 0 else "#64748b")
+
+            existing = {c.get("container_no", "").strip().upper() for c in _raw_containers if c.get("container_no")}
+            dups = [num for num in nums if num in existing]
+            if dups:
+                unique_dups = list(dict.fromkeys(dups))
+                dup_str = ", ".join(unique_dups[:6]) + (f" и еще {len(unique_dups)-6} шт." if len(unique_dups) > 6 else "")
+                lbl_dup_warning.config(text=f"⚠️ Вы уже данный вагон вводили: {dup_str}")
+            else:
+                lbl_dup_warning.config(text="")
 
         text_no.bind("<KeyRelease>", on_no_change)
         text_no.bind("<FocusOut>", on_no_change)
@@ -601,14 +612,14 @@ def open_container_dialog(container_data=None):
     ttk.Button(ret_frame, text="✖ Очистить", width=10, command=clear_ret_date).pack(side="left", padx=(5, 0))
     add_row(8, "Дата возврата", ret_frame)
 
-    # Инфо: Дней в пути & Добавил
+    # Инфо: Количество дней & Добавил
     cur_days = calculate_days_local(
         container_data.get("sent_date", date.today().strftime("%Y-%m-%d")) if is_edit else date.today().strftime("%Y-%m-%d"),
         container_data.get("return_date") if is_edit else None
     )
     lbl_info_transit = tk.Label(
         grid_frame,
-        text=f"Дней в пути: {cur_days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}",
+        text=f"Количество дней: {cur_days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}",
         font=("Segoe UI", 9, "italic"), fg="#475569"
     )
     lbl_info_transit.grid(row=9, column=0, columnspan=2, pady=(10, 5), sticky="w")
@@ -617,7 +628,7 @@ def open_container_dialog(container_data=None):
         s = date_sent.get().strip()
         r = date_ret.get().strip()
         days = calculate_days_local(s, r)
-        lbl_info_transit.config(text=f"Дней в пути: {days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}")
+        lbl_info_transit.config(text=f"Количество дней: {days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}")
 
     date_sent.bind("<KeyRelease>", update_transit_label)
     date_ret.bind("<KeyRelease>", update_transit_label)
@@ -643,11 +654,17 @@ def open_container_dialog(container_data=None):
         if cargo_val:
             remember_cargo(cargo_val)
 
+        existing_nos = {c.get("container_no", "").strip().upper() for c in _raw_containers if (not is_edit or c.get("id") != container_id) and c.get("container_no")}
+
         if is_edit:
             c_no = entry_no.get().strip().upper()
             if not c_no:
                 messagebox.showwarning("Внимание", "Укажите номер контейнера!", parent=dialog)
                 return
+
+            if c_no in existing_nos:
+                if not messagebox.askyesno("Внимание", f"⚠️ Вы уже данный вагон вводили: {c_no}!\n\nВы уверены, что хотите сохранить эти данные?", parent=dialog):
+                    return
 
             payload = {
                 "container_no": c_no,
@@ -679,6 +696,13 @@ def open_container_dialog(container_data=None):
             if not numbers:
                 messagebox.showwarning("Внимание", "Укажите хотя бы один номер контейнера или вагона!", parent=dialog)
                 return
+
+            dups = [n for n in numbers if n in existing_nos]
+            if dups:
+                unique_dups = list(dict.fromkeys(dups))
+                dup_str = ", ".join(unique_dups[:6]) + (f" и еще {len(unique_dups)-6} шт." if len(unique_dups) > 6 else "")
+                if not messagebox.askyesno("Внимание", f"⚠️ Вы уже данный вагон вводили: {dup_str}!\n\nВы действительно хотите добавить его повторно?", parent=dialog):
+                    return
 
             payload = {
                 "container_numbers": numbers,
@@ -936,7 +960,7 @@ def export_to_excel():
 
     headers = [
         "Номер", "Грузополучатель", "Наименование груза", "Баржа", "Нахождение", "Статус",
-        "Причина", "Дата отправки", "Дата возврата", "Дней в пути", "Добавлен пользователем"
+        "Причина", "Дата отправки", "Дата возврата", "Количество дней", "Добавлен пользователем"
     ]
     rows = []
     for iid in tree.get_children():
@@ -1283,7 +1307,7 @@ def start_main_application():
         "Причина",
         "Дата отправки",
         "Дата возврата",
-        "Дней в пути",
+        "Количество дней",
         "Добавлен пользователем"
     )
 
@@ -1297,7 +1321,7 @@ def start_main_application():
         "Причина": 180,
         "Дата отправки": 100,
         "Дата возврата": 100,
-        "Дней в пути": 90,
+        "Количество дней": 115,
         "Добавлен пользователем": 140
     }
 
