@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мониторинг контейнеров PRO — Корпоративная Дислокация</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --info: #0284c7;
+      --info-bg: #e0f2fe;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Шапка */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: 700; }
+    .user-badge { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; }
+
+    /* Панель инструментов */
+    .toolbar {
+      background: #e2e8f0;
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: white; color: #334155; border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    /* KPI Сводка */
+    .kpi-bar {
+      background: #eff6ff;
+      padding: 10px 24px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-bottom: 1px solid #bfdbfe;
+    }
+    .kpi-item { display: flex; align-items: center; gap: 6px; }
+    .kpi-item.blue { color: #1e40af; }
+    .kpi-item.red { color: var(--danger); }
+    .kpi-item.sky { color: #0284c7; }
+    .divider { color: #93c5fd; }
+
+    /* Поиск и Фильтры */
+    .filter-bar {
+      background: white;
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-group { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+    .input-control, .select-control {
+      padding: 7px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .input-control:focus, .select-control:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+    .search-input { min-width: 260px; }
+
+    /* Контейнер таблицы */
+    .content { flex: 1; padding: 16px 24px; display: flex; flex-direction: column; overflow: hidden; }
+    .table-container {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: auto;
+      flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+      border: 1.5px solid #000000;
+    }
+    thead {
+      position: sticky;
+      top: 0;
+      background: #1e40af;
+      color: white;
+      z-index: 5;
+    }
+    th {
+      padding: 10px 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      border: 1px solid #000000;
+      background: #1e40af;
+      color: #ffffff;
+    }
+    td {
+      padding: 9px 12px;
+      border: 1px solid #000000; /* Четкая черная линия между ячейками */
+      white-space: nowrap;
+    }
+    tbody tr:hover {
+      background: #f1f5f9;
+      cursor: pointer;
+    }
+    tbody tr.late {
+      background-color: #fee2e2 !important;
+      color: #991b1b;
+    }
+    tbody tr.late td {
+      border: 1px solid #000000 !important;
+    }
+    tbody tr.done {
+      background-color: #f0fdf4;
+      color: #166534;
+    }
+    tbody tr.done td {
+      border: 1px solid #000000 !important;
+    }
+
+    /* Бейджи статусов */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-transit { background: var(--info-bg); color: var(--info); }
+    .badge-delayed { background: var(--danger-bg); color: var(--danger); }
+    .badge-delivered { background: var(--success-bg); color: var(--success); }
+
+    /* Подвал */
+    footer {
+      background: white;
+      padding: 8px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Модальные окна */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      backdrop-filter: blur(2px);
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-card {
+      background: white;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+      animation: popIn 0.15s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .modal-header {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    .modal-header h3 { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
+    .close-btn { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-muted); }
+    .close-btn:hover { color: var(--text); }
+    .modal-body { padding: 20px 24px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 5px; color: #334155; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      background: #f8fafc;
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+    .btn-group-left { display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Шапка -->
+  <header>
+    <div class="brand">
+      <span>🚢</span>
+      <span>Мониторинг контейнеров PRO</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="user-badge" id="userName">
+        <span>Проверка сервера...</span>
+      </div>
+      <div class="user-badge" id="userProfileBadge" style="background: rgba(255,255,255,0.25); font-weight: 600;">
+        <span>👤</span>
+        <span id="userDisplayName">Вход не выполнен</span>
+      </div>
+      <button class="btn" style="padding: 4px 10px; font-size: 0.8rem; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4);" onclick="logoutUser()" title="Сменить сотрудника">Выйти ↩</button>
+    </div>
+  </header>
+
+  <!-- 2. Панель кнопок действий -->
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddModal()">➕ Добавить контейнер</button>
+    <button class="btn btn-secondary" onclick="fetchContainers()">🔄 Обновить</button>
+    <button class="btn btn-secondary" onclick="exportToExcel()">📊 Экспорт в Excel</button>
+    <button class="btn btn-secondary" onclick="openChartModal()">📈 Интерактивный график</button>
+    <button class="btn btn-secondary" onclick="openReportModal()">📋 Отчет по дислокации</button>
+  </div>
+
+  <!-- 3. KPI Сводка -->
+  <div class="kpi-bar">
+    <div class="kpi-item blue">
+      <span>Отправлено сегодня:</span>
+      <span id="kpiSentToday">0</span>
+    </div>
+    <span class="divider">|</span>
+    <div class="kpi-item red">
+      <span>В Хайратоне:</span>
+      <span id="kpiHairatan">0</span>
+    </div>
+    <span class="divider">|</span>
+    <div class="kpi-item sky">
+      <span>В Термез-порту:</span>
+      <span id="kpiTermez">0</span>
+    </div>
+    <span class="divider">|</span>
+    <div class="kpi-item" style="color: #166534;">
+      <span>Груженных: <strong id="kpiLoaded" style="margin-right: 8px;">0</strong> Порожних: <strong id="kpiEmpty">0</strong></span>
+    </div>
+  </div>
+
+  <!-- 4. Фильтры и живой поиск -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span>🔍</span>
+      <input type="text" id="searchInput" class="input-control search-input" placeholder="Поиск по номеру, клиенту, грузу, барже..." oninput="applyFilters()">
+    </div>
+    <div class="filter-group">
+      <label>Нахождение:</label>
+      <select id="filterDest" class="select-control" onchange="applyFilters()">
+        <option value="Все">Все нахождения</option>
+        <option value="Хайратон">Хайратон</option>
+        <option value="Термез-порт">Термез-порт</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Статус:</label>
+      <select id="filterStatus" class="select-control" onchange="applyFilters()">
+        <option value="Все">Все статусы</option>
+        <option value="Груженный">Груженный</option>
+        <option value="Порожний">Порожний</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Грузополучатель:</label>
+      <input list="filterClientsDatalist" id="filterClientInput" class="input-control" placeholder="Все клиенты" oninput="applyFilters()" style="max-width: 170px;">
+      <datalist id="filterClientsDatalist"></datalist>
+    </div>
+    <div class="filter-group">
+      <label>Груз:</label>
+      <input list="filterCargosDatalist" id="filterCargoInput" class="input-control" placeholder="Все грузы" oninput="applyFilters()" style="max-width: 150px;">
+      <datalist id="filterCargosDatalist"></datalist>
+    </div>
+    <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
+  </div>
+
+  <!-- 5. Основная таблица -->
+  <div class="content">
+    <div class="table-container">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th>Номер</th>
+            <th>Грузополучатель</th>
+            <th>Наименование груза</th>
+            <th>Баржа</th>
+            <th>Нахождение</th>
+            <th>Статус</th>
+            <th>Причина</th>
+            <th>Дата отправки</th>
+            <th>Дата возврата</th>
+            <th>Дней в пути</th>
+            <th>Добавлен пользователем</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Загрузка данных...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 6. Подвал -->
+  <footer>
+    <span id="footerCount">Загрузка...</span>
+    <span>Автообновление каждые 30 секунд • Система готова для работы всей компании</span>
+  </footer>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ДАННЫЕ КОНТЕЙНЕРА (ДОБАВИТЬ / РЕДАКТИРОВАТЬ / УДАЛИТЬ) -->
+  <div class="modal-backdrop" id="containerModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Данные контейнера</h3>
+        <button class="close-btn" onclick="closeModal('containerModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editContainerId">
+
+        <div class="form-group">
+          <label for="f_no" id="label_f_no">
+            Номер контейнера *
+            <span id="noBatchHint" style="font-size:0.78rem; font-weight:normal; color:#2563eb; margin-left:6px;">
+              (до 20 номеров через запятую, пробел или Enter)
+            </span>
+          </label>
+          <textarea id="f_no" class="input-control" rows="2" style="width:100%; font-family: monospace; font-size: 0.92rem; text-transform: uppercase;" placeholder="Например: TGHU1234567, MSKU7654321..." oninput="updateBatchBadge()"></textarea>
+          <div id="noBatchCount" style="font-size: 0.8rem; color: #475569; margin-top: 4px; font-weight: 500;">
+            Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">0</span> / 20
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f_client">Грузополучатель (с историей)</label>
+            <input type="text" id="f_client" list="clientsDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите нового">
+            <datalist id="clientsDatalist"></datalist>
+          </div>
+          <div class="form-group">
+            <label for="f_cargo">Наименование груза (с историей)</label>
+            <input type="text" id="f_cargo" list="cargosDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите груз">
+            <datalist id="cargosDatalist"></datalist>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f_barge">Баржа *</label>
+            <select id="f_barge" class="select-control" style="width:100%">
+              <option value="Zarafshon" selected>Zarafshon</option>
+              <option value="Surxon">Surxon</option>
+              <option value="O'zbekiston">O'zbekiston</option>
+              <option value="Samarkand">Samarkand</option>
+              <option value="Jizzax">Jizzax</option>
+              <option value="Toshkent">Toshkent</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="f_dest">Нахождение *</label>
+            <select id="f_dest" class="select-control" style="width:100%">
+              <option value="Хайратон" selected>Хайратон</option>
+              <option value="Термез-порт">Термез-порт</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f_status">Статус *</label>
+            <select id="f_status" class="select-control" style="width:100%">
+              <option value="Груженный" selected>Груженный</option>
+              <option value="Порожний">Порожний</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="f_reason">Причина / Примечание</label>
+            <input type="text" id="f_reason" class="input-control" style="width:100%" placeholder="Примечание...">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f_sent_date">Дата отправки * <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(дд.мм.гггг)</span></label>
+            <input type="date" id="f_sent_date" class="input-control" style="width:100%" onchange="updateCalcDays()" oninput="updateCalcDays()">
+          </div>
+          <div class="form-group">
+            <label for="f_return_date">Дата возврата / прибытия <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(дд.мм.гггг)</span></label>
+            <input type="date" id="f_return_date" class="input-control" style="width:100%" onchange="updateCalcDays()" oninput="updateCalcDays()">
+          </div>
+        </div>
+
+        <div id="modalInfoLine" style="font-size: 0.85rem; color: #475569; margin-top: 8px; font-style: italic;">
+          Дней в пути: <strong id="calcDays" style="color: #1e40af; font-size: 1rem;">1</strong>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="btn-group-left">
+          <button class="btn btn-primary" onclick="saveContainer()">💾 Сохранить</button>
+          <button class="btn btn-danger" id="btnDelete" onclick="deleteContainer()" style="display:none;">🗑 Удалить</button>
+        </div>
+        <button class="btn btn-secondary" onclick="closeModal('containerModal')">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ГРАФИК -->
+  <div class="modal-backdrop" id="chartModal">
+    <div class="modal-card" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>📈 Статистика отправок по направлениям</h3>
+        <button class="close-btn" onclick="closeModal('chartModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <canvas id="chartCanvas" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ОТЧЕТ -->
+  <div class="modal-backdrop" id="reportModal">
+    <div class="modal-card" style="max-width: 900px;">
+      <div class="modal-header">
+        <h3>📋 Отчет: Афганистан vs Узбекистан</h3>
+        <button class="close-btn" onclick="closeModal('reportModal')">✕</button>
+      </div>
+      <div class="modal-body" id="reportContent">
+        Загрузка отчета...
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: НАСТРОЙКА СЕРВЕРА -->
+  <div class="modal-backdrop" id="serverSettingsModal">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>⚙️ Подключение к серверу компании</h3>
+        <button class="close-btn" onclick="closeModal('serverSettingsModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cfg_server_url">Адрес сервера в локальной сети:</label>
+          <input type="text" id="cfg_server_url" class="input-control" style="width:100%" placeholder="http://192.168.1.50:8000 или http://localhost:8000">
+          <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+            Укажите IP-адрес компьютера компании, на котором запущен <code>run_server.bat</code>.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveServerConfig()">Подключиться</button>
+        <button class="btn btn-secondary" onclick="closeModal('serverSettingsModal')">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: АВТОРИЗАЦИЯ И СОЗДАНИЕ УЧЕТНОЙ ЗАПИСИ -->
+  <div class="modal-backdrop" id="loginModal" style="z-index: 100; backdrop-filter: blur(4px);">
+    <div class="modal-card" style="max-width: 440px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25);">
+      
+      <!-- Шапка с табами переключения режимов -->
+      <div style="background: #1e3a8a; padding: 18px 22px 0 22px; color: white;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h3 id="authModalTitle" style="color: white; font-size: 1.18rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span id="authModalIcon">✨</span> <span id="authModalHeading">Создать учетную запись</span>
+          </h3>
+        </div>
+
+        <div style="display: flex; border-bottom: 2px solid rgba(255, 255, 255, 0.15); gap: 6px;">
+          <button type="button" id="tabRegister" onclick="switchAuthMode('register')" style="background: none; border: none; padding: 10px 14px; font-weight: 600; font-size: 0.92rem; color: #ffffff; border-bottom: 3px solid #60a5fa; cursor: pointer; transition: all 0.2s;">
+            ➕ Создать учетную запись
+          </button>
+          <button type="button" id="tabLogin" onclick="switchAuthMode('login')" style="background: none; border: none; padding: 10px 14px; font-weight: 600; font-size: 0.92rem; color: #93c5fd; border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s;">
+            🔑 Войти в свой аккаунт
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 22px;">
+        <p id="authModalSubtext" style="font-size: 0.86rem; color: #64748b; margin-bottom: 16px; line-height: 1.45;">
+          Создайте учетную запись сотрудника. Ваше имя будет автоматически закрепляться за всеми добавленными вами контейнерами!
+        </p>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label id="authUsernameLabel" for="login_username" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Ваше ФИО / Логин *</label>
+          <input type="text" id="login_username" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Например: Дониёр Темиров" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label id="authPasswordLabel" for="login_password" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Придумайте пароль *</label>
+          <input type="password" id="login_password" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Введите пароль" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+        </div>
+
+        <div class="form-group" id="confirmPassGroup" style="margin-bottom: 14px; display: block;">
+          <label for="login_password_confirm" style="font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 5px;">Повторите пароль *</label>
+          <input type="password" id="login_password_confirm" class="input-control" style="width:100%; font-size: 0.95rem; padding: 10px;" placeholder="Повторите пароль для проверки" onkeypress="if(event.key==='Enter') handleAuthSubmit()">
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.88rem; color: #334155;">
+          <input type="checkbox" id="login_remember" checked style="width: 16px; height: 16px; cursor: pointer;">
+          <label for="login_remember" style="cursor: pointer; user-select: none;">Запомнить меня на этом устройстве</label>
+        </div>
+
+        <div id="login_error" style="color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
+        <div id="login_success" style="color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 9px 12px; font-size: 0.85rem; margin-top: 14px; display: none; line-height: 1.4;"></div>
+      </div>
+
+      <div class="modal-footer" style="background: #f8fafc; padding: 16px 22px; flex-direction: column; gap: 12px;">
+        <button id="btnAuthSubmit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px; font-size: 0.95rem; font-weight: 600;" onclick="handleAuthSubmit()">
+          ✨ Создать учетную запись и войти
+        </button>
+
+        <div style="text-align: center; font-size: 0.86rem; color: #64748b;">
+          <span id="authToggleHint">Уже зарегистрированы?</span>
+          <a href="javascript:void(0)" id="authToggleLink" onclick="toggleAuthMode()" style="color: #2563eb; font-weight: 600; text-decoration: none; margin-left: 4px;">
+            Войти в свой аккаунт
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allContainers = [];
+    let myChart = null;
+    let isOfflineMode = false;
+    let currentEmployee = null;
+    let currentAuthMode = 'register'; // 'register' или 'login'
+
+    // ==================== РАСЧЕТ ДАТ И ДНЕЙ В ПУТИ ====================
+    // Парсинг дат в формате YYYY-MM-DD или ДД.ММ.ГГГГ
+    function parseDateOnly(str) {
+      if (!str || str === '-' || str === 'null' || str === 'undefined') return null;
+      if (typeof str === 'string') {
+        const partsDot = str.trim().split('.');
+        if (partsDot.length === 3) {
+          return new Date(parseInt(partsDot[2], 10), parseInt(partsDot[1], 10) - 1, parseInt(partsDot[0], 10));
+        }
+        const partsDash = str.trim().split('-');
+        if (partsDash.length === 3) {
+          if (partsDash[0].length === 4) {
+            return new Date(parseInt(partsDash[0], 10), parseInt(partsDash[1], 10) - 1, parseInt(partsDash[2], 10));
+          } else {
+            return new Date(parseInt(partsDash[2], 10), parseInt(partsDash[1], 10) - 1, parseInt(partsDash[0], 10));
+          }
+        }
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // Форматирование даты в стандартный правильный порядок (ДД.ММ.ГГГГ)
+    function formatDate(val) {
+      if (!val || val === '-' || val === 'null' || val === 'undefined') return '-';
+      const d = parseDateOnly(val);
+      if (!d) return val;
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}.${mm}.${yyyy}`;
+    }
+
+    // Приведение даты в формат YYYY-MM-DD для HTML input type="date"
+    function toInputDateValue(val) {
+      const d = parseDateOnly(val);
+      if (!d) return '';
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Расчет дней в пути: со дня отправки по день возврата (или сегодняшний день) включительно.
+    // День отправки считается за 1 день пути!
+    function calculateDaysInTransit(sentStr, returnStr) {
+      const sent = parseDateOnly(sentStr);
+      if (!sent) return 0;
+
+      const ret = parseDateOnly(returnStr);
+      if (ret) {
+        const diffMs = ret.getTime() - sent.getTime();
+        const diffDays = Math.round(diffMs / 86400000);
+        return diffDays >= 0 ? diffDays + 1 : 0;
+      }
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffMs = today.getTime() - sent.getTime();
+      const diffDays = Math.round(diffMs / 86400000);
+      return diffDays >= 0 ? diffDays + 1 : 0;
+    }
+
+    function switchAuthMode(mode) {
+      currentAuthMode = mode;
+      const tabReg = document.getElementById('tabRegister');
+      const tabLog = document.getElementById('tabLogin');
+      const heading = document.getElementById('authModalHeading');
+      const icon = document.getElementById('authModalIcon');
+      const subtext = document.getElementById('authModalSubtext');
+      const passLabel = document.getElementById('authPasswordLabel');
+      const passGroup = document.getElementById('confirmPassGroup');
+      const btnSubmit = document.getElementById('btnAuthSubmit');
+      const toggleHint = document.getElementById('authToggleHint');
+      const toggleLink = document.getElementById('authToggleLink');
+      const errEl = document.getElementById('login_error');
+      const succEl = document.getElementById('login_success');
+
+      if (errEl) errEl.style.display = 'none';
+      if (succEl) succEl.style.display = 'none';
+
+      if (mode === 'register') {
+        if (heading) heading.textContent = 'Создать учетную запись';
+        if (icon) icon.textContent = '✨';
+        if (subtext) subtext.textContent = 'Создайте учетную запись сотрудника. Ваше имя будет автоматически закрепляться за всеми добавленными вами контейнерами!';
+        if (passLabel) passLabel.textContent = 'Придумайте пароль *';
+        if (passGroup) passGroup.style.display = 'block';
+        if (btnSubmit) btnSubmit.innerHTML = '✨ Создать учетную запись и войти';
+        if (toggleHint) toggleHint.textContent = 'Уже зарегистрированы?';
+        if (toggleLink) toggleLink.textContent = 'Войти в свой аккаунт';
+
+        if (tabReg) {
+          tabReg.style.color = '#ffffff';
+          tabReg.style.borderBottom = '3px solid #60a5fa';
+        }
+        if (tabLog) {
+          tabLog.style.color = '#93c5fd';
+          tabLog.style.borderBottom = '3px solid transparent';
+        }
+      } else {
+        if (heading) heading.textContent = 'Войти в свой аккаунт';
+        if (icon) icon.textContent = '🚢';
+        if (subtext) subtext.textContent = 'Введите ваш логин и пароль для входа в систему мониторинга контейнеров.';
+        if (passLabel) passLabel.textContent = 'Пароль *';
+        if (passGroup) passGroup.style.display = 'none';
+        if (btnSubmit) btnSubmit.innerHTML = '🔑 Войти в свой аккаунт';
+        if (toggleHint) toggleHint.textContent = 'Впервые в системе?';
+        if (toggleLink) toggleLink.textContent = 'Создать учетную запись';
+
+        if (tabLog) {
+          tabLog.style.color = '#ffffff';
+          tabLog.style.borderBottom = '3px solid #60a5fa';
+        }
+        if (tabReg) {
+          tabReg.style.color = '#93c5fd';
+          tabReg.style.borderBottom = '3px solid transparent';
+        }
+      }
+    }
+
+    function toggleAuthMode() {
+      if (currentAuthMode === 'register') {
+        switchAuthMode('login');
+      } else {
+        switchAuthMode('register');
+      }
+    }
+
+    function showAuthError(msg) {
+      const errEl = document.getElementById('login_error');
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+      }
+    }
+
+    // Инициализация сессии пользователя
+    function initUserSession() {
+      const saved = localStorage.getItem('dislocation_employee') || sessionStorage.getItem('dislocation_employee');
+      if (saved) {
+        try {
+          currentEmployee = JSON.parse(saved);
+          updateUserDisplay();
+          return;
+        } catch (e) {}
+      }
+
+      // Для новых пользователей сначала показываем вывеску "Создать учетную запись"
+      const usersDb = getRegisteredUsers();
+      if (Object.keys(usersDb).length > 0) {
+        switchAuthMode('login');
+      } else {
+        switchAuthMode('register');
+      }
+      openModal('loginModal');
+    }
+
+    function updateUserDisplay() {
+      const disp = document.getElementById('userDisplayName');
+      if (currentEmployee) {
+        disp.textContent = currentEmployee.full_name || currentEmployee.username;
+      } else {
+        disp.textContent = 'Вход не выполнен';
+      }
+    }
+
+    function getRegisteredUsers() {
+      const data = localStorage.getItem('dislocation_registered_users');
+      return data ? JSON.parse(data) : {};
+    }
+    function saveRegisteredUsers(users) {
+      localStorage.setItem('dislocation_registered_users', JSON.stringify(users));
+    }
+
+    async function handleAuthSubmit() {
+      const u = document.getElementById('login_username').value.trim();
+      const p = document.getElementById('login_password').value.trim();
+      const pConfirmEl = document.getElementById('login_password_confirm');
+      const pConfirm = pConfirmEl ? pConfirmEl.value.trim() : '';
+      const remember = document.getElementById('login_remember').checked;
+      const errEl = document.getElementById('login_error');
+      const succEl = document.getElementById('login_success');
+
+      if (errEl) errEl.style.display = 'none';
+      if (succEl) succEl.style.display = 'none';
+
+      if (!u) {
+        showAuthError('⚠️ Пожалуйста, укажите ваше ФИО или логин');
+        return;
+      }
+      if (!p) {
+        showAuthError('⚠️ Пожалуйста, введите пароль');
+        return;
+      }
+
+      if (currentAuthMode === 'register') {
+        if (p.length < 3) {
+          showAuthError('⚠️ Пароль должен содержать не менее 3 символов');
+          return;
+        }
+        if (pConfirm && p !== pConfirm) {
+          showAuthError('⚠️ Пароли не совпадают! Проверьте подтверждение пароля.');
+          return;
+        }
+      }
+
+      const api = getApiBase();
+      const uKey = u.toLowerCase();
+      const usersDb = getRegisteredUsers();
+      let loggedInUser = null;
+
+      if (currentAuthMode === 'register') {
+        // ========== РЕГИСТРАЦИЯ ==========
+        if (!isOfflineMode) {
+          try {
+            const res = await fetch(`${api}/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: u, password: p, full_name: u })
+            });
+            if (res.ok) {
+              loggedInUser = await res.json();
+              usersDb[uKey] = { username: u, password: p, full_name: loggedInUser.full_name || u };
+              saveRegisteredUsers(usersDb);
+            } else {
+              let msg = 'Ошибка при создании учетной записи';
+              try {
+                const data = await res.json();
+                if (data.detail) msg = data.detail;
+              } catch (e) {
+                msg = await res.text();
+              }
+              showAuthError('⚠️ ' + msg);
+              return;
+            }
+          } catch (e) {
+            console.warn('Сервер недоступен, регистрируем локально:', e);
+          }
+        }
+
+        // Если оффлайн или сервер не ответил
+        if (!loggedInUser) {
+          if (usersDb[uKey]) {
+            showAuthError('⚠️ Пользователь с таким логином уже существует! Переключитесь на «Войти в свой аккаунт».');
+            return;
+          }
+          usersDb[uKey] = { username: u, password: p, full_name: u, role: 'dispatcher' };
+          saveRegisteredUsers(usersDb);
+          loggedInUser = usersDb[uKey];
+        }
+
+      } else {
+        // ========== ВХОД (LOGIN) ==========
+        if (!isOfflineMode) {
+          try {
+            const res = await fetch(`${api}/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: u, password: p })
+            });
+            if (res.ok) {
+              loggedInUser = await res.json();
+              usersDb[uKey] = { username: u, password: p, full_name: loggedInUser.full_name || u };
+              saveRegisteredUsers(usersDb);
+            } else {
+              let msg = 'Ошибка входа';
+              try {
+                const data = await res.json();
+                if (data.detail) msg = data.detail;
+              } catch (e) {
+                msg = await res.text();
+              }
+              showAuthError('⚠️ ' + msg);
+              return;
+            }
+          } catch (e) {
+            console.warn('Сервер недоступен, проверяем локально:', e);
+          }
+        }
+
+        // Если оффлайн или сервер не ответил
+        if (!loggedInUser) {
+          if (!usersDb[uKey]) {
+            showAuthError(`⚠️ Пользователь '${u}' не найден! Проверьте логин или нажмите «Создать учетную запись».`);
+            return;
+          }
+          if (usersDb[uKey].password !== p) {
+            showAuthError('⚠️ Неверный пароль! Проверьте правильность введённого пароля.');
+            return;
+          }
+          loggedInUser = {
+            username: usersDb[uKey].username || u,
+            full_name: usersDb[uKey].full_name || u,
+            role: 'dispatcher'
+          };
+        }
+      }
+
+      currentEmployee = loggedInUser;
+      if (remember) {
+        localStorage.setItem('dislocation_employee', JSON.stringify(currentEmployee));
+      } else {
+        sessionStorage.setItem('dislocation_employee', JSON.stringify(currentEmployee));
+      }
+
+      updateUserDisplay();
+      closeModal('loginModal');
+    }
+
+    // Совместимость
+    function handleLoginSubmit() {
+      return handleAuthSubmit();
+    }
+
+    function logoutUser() {
+      localStorage.removeItem('dislocation_employee');
+      sessionStorage.removeItem('dislocation_employee');
+      currentEmployee = null;
+      updateUserDisplay();
+      document.getElementById('login_password').value = '';
+      const pConf = document.getElementById('login_password_confirm');
+      if (pConf) pConf.value = '';
+      const errEl = document.getElementById('login_error');
+      if (errEl) errEl.style.display = 'none';
+
+      // При выходе всегда открываем вывеску "Войти в свой аккаунт"
+      switchAuthMode('login');
+      openModal('loginModal');
+    }
+
+    // Определение базового адреса API
+    function getApiBase() {
+      if (window.location.protocol === 'file:') {
+        return (localStorage.getItem('dislocation_server_url') || 'http://localhost:8000').replace(/\/+$/, '');
+      }
+      return '';
+    }
+
+    function setConnectionStatus(online, info = '') {
+      const userBadge = document.getElementById('userName');
+      if (online) {
+        userBadge.innerHTML = `🟢 <span>Сервер онлайн ${info ? '(' + info + ')' : ''}</span>`;
+        userBadge.style.background = 'rgba(34, 197, 94, 0.25)';
+        isOfflineMode = false;
+      } else {
+        userBadge.innerHTML = `🟡 <span>Автономный режим (Локально)</span> <button onclick="openModal('serverSettingsModal')" style="background: white; color: #1e293b; border:none; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; cursor: pointer; margin-left: 6px;">⚙️ Подключить сервер</button>`;
+        userBadge.style.background = 'rgba(234, 179, 8, 0.25)';
+        isOfflineMode = true;
+      }
+    }
+
+    function saveServerConfig() {
+      let url = document.getElementById('cfg_server_url').value.trim();
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'http://' + url;
+      }
+      localStorage.setItem('dislocation_server_url', url || 'http://localhost:8000');
+      closeModal('serverSettingsModal');
+      fetchContainers();
+    }
+
+    // Инициализация поля сервера
+    document.getElementById('cfg_server_url').value = localStorage.getItem('dislocation_server_url') || 'http://localhost:8000';
+
+    // Локальное резервное хранилище (LocalStorage) если сервер не запущен
+    function getLocalData() {
+      const stored = localStorage.getItem('dislocation_containers_cache');
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) {}
+      }
+      return [
+        {
+          id: 1,
+          container_no: "MSKU9023411",
+          client: "OOO 'Global Trade'",
+          cargo_name: "Мука пшеничная 1 сорт",
+          barge: "Zarafshon",
+          destination: "Хайратон",
+          status: "Груженный",
+          reason: "",
+          sent_date: new Date().toISOString().split('T')[0],
+          return_date: null,
+          days_in_transit: 5,
+          added_by: "Диспетчер"
+        },
+        {
+          id: 2,
+          container_no: "TGHU5562180",
+          client: "Asia Trans Logistics",
+          cargo_name: "Сахар-песок",
+          barge: "Surxon",
+          destination: "Термез-порт",
+          status: "Порожний",
+          reason: "",
+          sent_date: new Date().toISOString().split('T')[0],
+          return_date: null,
+          days_in_transit: 2,
+          added_by: "Диспетчер"
+        },
+        {
+          id: 3,
+          container_no: "CXIU8812904",
+          client: "Silk Road Express",
+          cargo_name: "Строительные материалы",
+          barge: "O'zbekiston",
+          destination: "Хайратон",
+          status: "Груженный",
+          reason: "Ожидание таможенного досмотра",
+          sent_date: "2026-08-10",
+          return_date: null,
+          days_in_transit: 35,
+          added_by: "Диспетчер"
+        }
+      ];
+    }
+
+    function saveLocalData(data) {
+      localStorage.setItem('dislocation_containers_cache', JSON.stringify(data));
+    }
+
+    // ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ ==================
+    function getRememberedClients() {
+      try {
+        const stored = localStorage.getItem('dislocation_clients_history');
+        const list = stored ? JSON.parse(stored) : [];
+        const fromContainers = allContainers.map(c => (c.client || '').trim()).filter(Boolean);
+        return Array.from(new Set([...list, ...fromContainers])).sort();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function rememberClient(name) {
+      if (!name || !name.trim()) return;
+      const clean = name.trim();
+      const list = getRememberedClients();
+      if (!list.includes(clean)) {
+        list.push(clean);
+        localStorage.setItem('dislocation_clients_history', JSON.stringify(list));
+      }
+      refreshSuggestions();
+    }
+
+    function getRememberedCargos() {
+      try {
+        const stored = localStorage.getItem('dislocation_cargos_history');
+        const list = stored ? JSON.parse(stored) : [];
+        const fromContainers = allContainers.map(c => (c.cargo_name || '').trim()).filter(Boolean);
+        return Array.from(new Set([...list, ...fromContainers])).sort();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function rememberCargo(name) {
+      if (!name || !name.trim()) return;
+      const clean = name.trim();
+      const list = getRememberedCargos();
+      if (!list.includes(clean)) {
+        list.push(clean);
+        localStorage.setItem('dislocation_cargos_history', JSON.stringify(list));
+      }
+      refreshSuggestions();
+    }
+
+    function refreshSuggestions() {
+      const clients = getRememberedClients();
+      const cargos = getRememberedCargos();
+
+      const fillDatalist = (id, items) => {
+        const dl = document.getElementById(id);
+        if (dl) {
+          dl.innerHTML = items.map(item => `<option value="${escapeHtml(item)}">`).join('');
+        }
+      };
+
+      fillDatalist('clientsDatalist', clients);
+      fillDatalist('filterClientsDatalist', clients);
+      fillDatalist('cargosDatalist', cargos);
+      fillDatalist('filterCargosDatalist', cargos);
+    }
+
+    // ================== ПАРСИНГ НОМЕРОВ КОНТЕЙНЕРОВ (ДО 20 ШТ) ==================
+    function parseContainerNumbers(str) {
+      if (!str) return [];
+      const tokens = str.split(/[\r\n,;\s]+/);
+      const seen = new Set();
+      const result = [];
+      for (let t of tokens) {
+        t = t.trim().toUpperCase();
+        if (t && !seen.has(t)) {
+          seen.add(t);
+          result.push(t);
+        }
+      }
+      return result;
+    }
+
+    function updateBatchBadge() {
+      const isEdit = Boolean(document.getElementById('editContainerId').value);
+      const val = document.getElementById('f_no').value;
+      const list = parseContainerNumbers(val);
+      const badgeWrap = document.getElementById('noBatchCount');
+
+      if (isEdit) {
+        if (badgeWrap) badgeWrap.style.display = 'none';
+        return;
+      }
+
+      if (badgeWrap) {
+        badgeWrap.style.display = 'block';
+        if (list.length > 20) {
+          badgeWrap.style.color = '#dc2626';
+          badgeWrap.innerHTML = `⚠️ Распознано: <span style="font-weight:700;">${list.length}</span> / 20. Превышен лимит! Допустимо не более 20 номеров.`;
+        } else {
+          badgeWrap.style.color = '#475569';
+          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">${list.length}</span> / 20`;
+        }
+      }
+    }
+
+    // ================== ЗАГРУЗКА И СИНХРОНИЗАЦИЯ ==================
+    async function fetchContainers() {
+      const api = getApiBase();
+      try {
+        const res = await fetch(`${api}/containers`, { method: 'GET' });
+        if (!res.ok) throw new Error('Сервер вернул статус ' + res.status);
+        allContainers = await res.json();
+        setConnectionStatus(true, api || 'локальный хост');
+        saveLocalData(allContainers);
+        refreshSuggestions();
+        applyFilters();
+        fetchStats();
+      } catch (err) {
+        console.warn('Сервер недоступен, переход в автономный режим:', err);
+        setConnectionStatus(false);
+        allContainers = getLocalData();
+        refreshSuggestions();
+        applyFilters();
+        updateOfflineStats();
+      }
+    }
+
+    async function fetchStats() {
+      const api = getApiBase();
+      try {
+        const res = await fetch(`${api}/stats`);
+        if (!res.ok) return;
+        const st = await res.json();
+        document.getElementById('kpiSentToday').textContent = st.sent_today || 0;
+        document.getElementById('kpiHairatan').textContent = st.hairatan_count || 0;
+        document.getElementById('kpiTermez').textContent = st.termez_count || 0;
+        document.getElementById('kpiLoaded').textContent = st.loaded_count || 0;
+        document.getElementById('kpiEmpty').textContent = st.empty_count || 0;
+      } catch (e) {
+        updateOfflineStats();
+      }
+    }
+
+    function updateOfflineStats() {
+      const today = toInputDateValue(new Date());
+      const sentToday = allContainers.filter(c => toInputDateValue(c.sent_date) === today).length;
+      const hairatan = allContainers.filter(c => {
+        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        return (c.destination === 'Хайратон' || c.destination === 'Афганистан') && !hasRet;
+      }).length;
+      const termez = allContainers.filter(c => {
+        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        return (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && !hasRet;
+      }).length;
+      const loaded = allContainers.filter(c => c.status === 'Груженный').length;
+      const empty = allContainers.filter(c => c.status === 'Порожний').length;
+
+      document.getElementById('kpiSentToday').textContent = sentToday;
+      document.getElementById('kpiHairatan').textContent = hairatan;
+      document.getElementById('kpiTermez').textContent = termez;
+      document.getElementById('kpiLoaded').textContent = loaded;
+      document.getElementById('kpiEmpty').textContent = empty;
+    }
+
+    function renderTable(list) {
+      const tbody = document.getElementById('tableBody');
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
+        document.getElementById('footerCount').textContent = 'Всего контейнеров: 0';
+        return;
+      }
+
+      tbody.innerHTML = list.map(c => {
+        const daysInTransit = calculateDaysInTransit(c.sent_date, c.return_date);
+        const hasReturned = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        const isLate = (c.destination === 'Хайратон' && !hasReturned && daysInTransit > 30);
+        const rowClass = isLate ? 'late' : '';
+
+        let statusBadge = `<span class="badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;">Груженный</span>`;
+        if (c.status === 'Порожний') {
+          statusBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">Порожний</span>`;
+        }
+
+        let locBadge = `<span style="font-weight:600; color:#1e40af;">${escapeHtml(c.destination)}</span>`;
+        if (c.destination === 'Термез-порт') {
+          locBadge = `<span style="font-weight:600; color:#0d9488;">Термез-порт</span>`;
+        } else if (c.destination === 'Хайратон') {
+          locBadge = `<span style="font-weight:600; color:#b91c1c;">Хайратон</span>`;
+        }
+
+        return `
+          <tr class="${rowClass}" onclick="openEditModal(${c.id})">
+            <td><strong>${escapeHtml(c.container_no)}</strong></td>
+            <td>${escapeHtml(c.client || '-')}</td>
+            <td>${escapeHtml(c.cargo_name || '-')}</td>
+            <td>${escapeHtml(c.barge || '-')}</td>
+            <td>${locBadge}</td>
+            <td>${statusBadge}</td>
+            <td>${escapeHtml(c.reason || '-')}</td>
+            <td>${formatDate(c.sent_date)}</td>
+            <td>${formatDate(c.return_date)}</td>
+            <td style="text-align: center; font-weight: 700; color: #1e3a8a;">${daysInTransit}</td>
+            <td>${escapeHtml(c.added_by || '-')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('footerCount').textContent = `Всего отображается: ${list.length} контейнеров`;
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      const dest = document.getElementById('filterDest').value;
+      const status = document.getElementById('filterStatus').value;
+      const client = document.getElementById('filterClientInput').value.trim().toLowerCase();
+      const cargo = document.getElementById('filterCargoInput').value.trim().toLowerCase();
+
+      const filtered = allContainers.filter(c => {
+        const matchSearch = !search ||
+          (c.container_no && c.container_no.toLowerCase().includes(search)) ||
+          (c.client && c.client.toLowerCase().includes(search)) ||
+          (c.cargo_name && c.cargo_name.toLowerCase().includes(search)) ||
+          (c.barge && c.barge.toLowerCase().includes(search)) ||
+          (c.destination && c.destination.toLowerCase().includes(search)) ||
+          (c.reason && c.reason.toLowerCase().includes(search));
+
+        const matchDest = (dest === 'Все' || dest === 'Все нахождения' || c.destination === dest);
+        const matchStatus = (status === 'Все' || status === 'Все статусы' || c.status === status);
+        const matchClient = !client || (c.client && c.client.toLowerCase().includes(client));
+        const matchCargo = !cargo || (c.cargo_name && c.cargo_name.toLowerCase().includes(cargo));
+
+        return matchSearch && matchDest && matchStatus && matchClient && matchCargo;
+      });
+
+      renderTable(filtered);
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('filterDest').value = 'Все';
+      document.getElementById('filterStatus').value = 'Все';
+      document.getElementById('filterClientInput').value = '';
+      document.getElementById('filterCargoInput').value = '';
+      renderTable(allContainers);
+    }
+
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры (до 20 шт)';
+      document.getElementById('editContainerId').value = '';
+      document.getElementById('f_no').value = '';
+      document.getElementById('f_no').rows = 3;
+      document.getElementById('f_client').value = '';
+      document.getElementById('f_cargo').value = '';
+      document.getElementById('f_barge').value = 'Zarafshon';
+      document.getElementById('f_dest').value = 'Хайратон';
+      document.getElementById('f_status').value = 'Груженный';
+      document.getElementById('f_reason').value = '';
+      document.getElementById('f_sent_date').value = toInputDateValue(new Date());
+      document.getElementById('f_return_date').value = '';
+      document.getElementById('btnDelete').style.display = 'none';
+      const hint = document.getElementById('noBatchHint');
+      if (hint) hint.style.display = 'inline';
+      updateBatchBadge();
+      updateCalcDays();
+      refreshSuggestions();
+      openModal('containerModal');
+    }
+
+    function openEditModal(id) {
+      const c = allContainers.find(x => x.id === id);
+      if (!c) return;
+
+      document.getElementById('modalTitle').textContent = 'Данные контейнера';
+      document.getElementById('editContainerId').value = c.id;
+      document.getElementById('f_no').value = c.container_no || '';
+      document.getElementById('f_no').rows = 1;
+      document.getElementById('f_client').value = c.client || '';
+      document.getElementById('f_cargo').value = c.cargo_name || '';
+      document.getElementById('f_barge').value = c.barge || 'Zarafshon';
+      document.getElementById('f_dest').value = (c.destination === 'Термез-порт') ? 'Термез-порт' : 'Хайратон';
+      document.getElementById('f_status').value = (c.status === 'Порожний') ? 'Порожний' : 'Груженный';
+      document.getElementById('f_reason').value = c.reason || '';
+      document.getElementById('f_sent_date').value = toInputDateValue(c.sent_date);
+      document.getElementById('f_return_date').value = toInputDateValue(c.return_date);
+      document.getElementById('btnDelete').style.display = 'inline-block';
+      const hint = document.getElementById('noBatchHint');
+      if (hint) hint.style.display = 'none';
+      updateBatchBadge();
+      updateCalcDays();
+      refreshSuggestions();
+      openModal('containerModal');
+    }
+
+    function updateCalcDays() {
+      const s = document.getElementById('f_sent_date').value;
+      const r = document.getElementById('f_return_date').value;
+      const days = calculateDaysInTransit(s, r);
+      document.getElementById('calcDays').textContent = days;
+    }
+
+    async function saveContainer() {
+      const id = document.getElementById('editContainerId').value;
+      const rawNo = document.getElementById('f_no').value;
+      const clientVal = document.getElementById('f_client').value.trim();
+      const cargoVal = document.getElementById('f_cargo').value.trim();
+      const bargeVal = document.getElementById('f_barge').value.trim();
+      const destVal = document.getElementById('f_dest').value;
+      const statusVal = document.getElementById('f_status').value;
+      const reasonVal = document.getElementById('f_reason').value.trim();
+      const sentVal = document.getElementById('f_sent_date').value;
+      const retVal = document.getElementById('f_return_date').value || null;
+
+      if (!sentVal) {
+        alert('Укажите дату отправки!');
+        return;
+      }
+
+      // Запоминаем грузополучателя и наименование груза
+      if (clientVal) rememberClient(clientVal);
+      if (cargoVal) rememberCargo(cargoVal);
+
+      const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
+      const api = getApiBase();
+
+      if (id) {
+        // Редактирование существующего одного контейнера
+        const singleNo = rawNo.trim().toUpperCase();
+        if (!singleNo) {
+          alert('Введите номер контейнера!');
+          return;
+        }
+
+        const payload = {
+          container_no: singleNo,
+          client: clientVal,
+          cargo_name: cargoVal,
+          barge: bargeVal,
+          destination: destVal,
+          status: statusVal,
+          reason: reasonVal,
+          sent_date: sentVal,
+          return_date: retVal,
+          changed_by: empName
+        };
+
+        if (isOfflineMode) {
+          const idx = allContainers.findIndex(x => x.id == id);
+          if (idx !== -1) {
+            allContainers[idx] = {
+              ...allContainers[idx],
+              ...payload,
+              days_in_transit: calculateDaysInTransit(payload.sent_date, payload.return_date)
+            };
+            saveLocalData(allContainers);
+          }
+          closeModal('containerModal');
+          applyFilters();
+          updateOfflineStats();
+          return;
+        }
+
+        try {
+          const res = await fetch(`${api}/containers/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            closeModal('containerModal');
+            fetchContainers();
+          } else {
+            alert('Ошибка сохранения: ' + (await res.text()));
+          }
+        } catch (e) {
+          alert('Ошибка связи: ' + e.message);
+        }
+
+      } else {
+        // Добавление новых контейнеров (до 20 шт)
+        const numbers = parseContainerNumbers(rawNo);
+        if (numbers.length === 0) {
+          alert('Укажите хотя бы один номер контейнера!');
+          return;
+        }
+        if (numbers.length > 20) {
+          alert(`Вы ввели ${numbers.length} номеров. Максимально разрешено до 20 номеров за раз!`);
+          return;
+        }
+
+        const basePayload = {
+          client: clientVal,
+          cargo_name: cargoVal,
+          barge: bargeVal,
+          destination: destVal,
+          status: statusVal,
+          reason: reasonVal,
+          sent_date: sentVal,
+          return_date: retVal,
+          added_by: empName
+        };
+
+        if (isOfflineMode) {
+          const nowTs = Date.now();
+          numbers.forEach((c_no, i) => {
+            allContainers.unshift({
+              id: nowTs + i,
+              container_no: c_no,
+              ...basePayload,
+              days_in_transit: calculateDaysInTransit(basePayload.sent_date, basePayload.return_date)
+            });
+          });
+          saveLocalData(allContainers);
+          closeModal('containerModal');
+          applyFilters();
+          updateOfflineStats();
+          return;
+        }
+
+        try {
+          const res = await fetch(`${api}/containers/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              container_numbers: numbers,
+              ...basePayload
+            })
+          });
+
+          if (res.ok) {
+            closeModal('containerModal');
+            fetchContainers();
+          } else {
+            // Если пакетный эндпоинт вернул ошибку, создаем через обычный POST в цикле
+            for (const c_no of numbers) {
+              await fetch(`${api}/containers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ container_no: c_no, ...basePayload })
+              });
+            }
+            closeModal('containerModal');
+            fetchContainers();
+          }
+        } catch (e) {
+          alert('Ошибка связи: ' + e.message);
+        }
+      }
+    }
+
+    async function deleteContainer() {
+      const id = document.getElementById('editContainerId').value;
+      if (!id) return;
+      if (!confirm('Вы точно хотите удалить этот контейнер?')) return;
+
+      if (isOfflineMode) {
+        allContainers = allContainers.filter(x => x.id != id);
+        saveLocalData(allContainers);
+        closeModal('containerModal');
+        applyFilters();
+        updateOfflineStats();
+        return;
+      }
+
+      const api = getApiBase();
+      try {
+        const res = await fetch(`${api}/containers/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: (currentEmployee ? currentEmployee.username : 'Web пользователь') })
+        });
+        if (res.ok) {
+          closeModal('containerModal');
+          fetchContainers();
+        } else {
+          alert('Ошибка удаления');
+        }
+      } catch (e) {
+        alert('Ошибка связи: ' + e.message);
+      }
+    }
+
+    function exportToExcel() {
+      const data = allContainers.map(c => ({
+        'Номер': c.container_no,
+        'Грузополучатель': c.client || '-',
+        'Наименование груза': c.cargo_name || '-',
+        'Баржа': c.barge || '-',
+        'Нахождение': c.destination,
+        'Статус': c.status,
+        'Причина': c.reason || '-',
+        'Дата отправки': formatDate(c.sent_date),
+        'Дата возврата': formatDate(c.return_date),
+        'Дней в пути': calculateDaysInTransit(c.sent_date, c.return_date),
+        'Добавлен пользователем': c.added_by || '-'
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Дислокация');
+      const todayStr = formatDate(new Date()).replace(/\./g, '-');
+      XLSX.writeFile(wb, `Дислокация_${todayStr}.xlsx`);
+    }
+
+    function openChartModal() {
+      openModal('chartModal');
+      const counts = {};
+      allContainers.forEach(c => {
+        counts[c.destination] = (counts[c.destination] || 0) + 1;
+      });
+
+      const ctx = document.getElementById('chartCanvas').getContext('2d');
+      if (myChart) myChart.destroy();
+      myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(counts),
+          datasets: [{
+            label: 'Количество контейнеров',
+            data: Object.values(counts),
+            backgroundColor: ['#ef4444', '#0d9488', '#3b82f6', '#10b981', '#f59e0b']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    async function openReportModal() {
+      openModal('reportModal');
+      const cont = document.getElementById('reportContent');
+      cont.innerHTML = 'Загрузка...';
+
+      let rep = null;
+      const api = getApiBase();
+
+      if (!isOfflineMode) {
+        try {
+          const res = await fetch(`${api}/report`);
+          if (res.ok) rep = await res.json();
+        } catch (e) {}
+      }
+
+      // Если оффлайн или сервер не ответил — формируем отчет из локального списка
+      if (!rep) {
+        const hList = allContainers.filter(c => (c.destination === 'Хайратон' || c.destination === 'Афганистан') && (!c.return_date || c.return_date === '-'));
+        const tList = allContainers.filter(c => (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && (!c.return_date || c.return_date === '-'));
+        rep = {
+          summary: {
+            hairatan_now_count: hList.length,
+            termez_now_count: tList.length
+          },
+          hairatan_now: hList.map(c => ({
+            container_no: c.container_no,
+            cargo_name: c.cargo_name || '',
+            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
+            status: c.status
+          })),
+          termez_now: tList.map(c => ({
+            container_no: c.container_no,
+            cargo_name: c.cargo_name || '',
+            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
+            status: c.status
+          }))
+        };
+      }
+
+      const hCount = (rep.summary && rep.summary.hairatan_now_count !== undefined) ? rep.summary.hairatan_now_count : (rep.hairatan_now ? rep.hairatan_now.length : 0);
+      const tCount = (rep.summary && rep.summary.termez_now_count !== undefined) ? rep.summary.termez_now_count : (rep.termez_now ? rep.termez_now.length : 0);
+
+      cont.innerHTML = `
+        <div style="display: flex; gap: 20px;">
+          <div style="flex: 1; border: 1px solid #fecaca; background: #fff5f5; border-radius: 8px; padding: 14px;">
+            <h4 style="color: #dc2626; margin-bottom: 10px; font-size: 1.05rem;">📍 В Хайратоне (${hCount})</h4>
+            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
+              ${(rep.hairatan_now && rep.hairatan_now.length) ? rep.hairatan_now.map(a => `<li><strong>${escapeHtml(a.container_no)}</strong> ${a.cargo_name ? '[' + escapeHtml(a.cargo_name) + ']' : ''} — ${a.days_in_transit || a.days_in_afghanistan || 0} дн. (${escapeHtml(a.status || '')})</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
+            </ul>
+          </div>
+          <div style="flex: 1; border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; padding: 14px;">
+            <h4 style="color: #16a34a; margin-bottom: 10px; font-size: 1.05rem;">📍 В Термез-порту (${tCount})</h4>
+            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
+              ${(rep.termez_now && rep.termez_now.length) ? rep.termez_now.map(u => `<li><strong>${escapeHtml(u.container_no || u)}</strong> ${u.cargo_name ? '[' + escapeHtml(u.cargo_name) + ']' : ''} — ${u.status || ''}</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Старт
+    initUserSession();
+    fetchContainers();
+    setInterval(fetchContainers, 30000); // автообновление раз в 30 сек
+  </script>
+</body>
+</html>
