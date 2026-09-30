@@ -63,10 +63,11 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         container_no TEXT NOT NULL,
         client TEXT DEFAULT '',            -- Грузополучатель
+        cargo_name TEXT DEFAULT '',        -- Наименование груза
         barge TEXT DEFAULT '',             -- Баржа
-        destination TEXT NOT NULL,         -- Направление (Казахстан, Афганистан, Узбекистан...)
-        status TEXT NOT NULL,              -- В пути, Задержан, Доставлен, Возвращен
-        reason TEXT DEFAULT '',            -- Причина задержки / примечание
+        destination TEXT NOT NULL,         -- Нахождение (Хайратон, Термез-порт)
+        status TEXT NOT NULL,              -- Статус (Груженный, Порожний)
+        reason TEXT DEFAULT '',            -- Причина / примечание
         sent_date TEXT NOT NULL,           -- yyyy-mm-dd
         return_date TEXT DEFAULT NULL,     -- yyyy-mm-dd (дата возврата / прибытия)
         country TEXT DEFAULT '',           -- Страна
@@ -77,11 +78,13 @@ def init_db():
     )
     """)
 
-    # Миграция: автоматическое добавление колонок client и barge, если база данных уже была создана старой версией
+    # Миграция: автоматическое добавление колонок client, barge, cargo_name
     cur.execute("PRAGMA table_info(containers)")
     cols = [r["name"] for r in cur.fetchall()]
     if "client" not in cols:
         cur.execute("ALTER TABLE containers ADD COLUMN client TEXT DEFAULT ''")
+    if "cargo_name" not in cols:
+        cur.execute("ALTER TABLE containers ADD COLUMN cargo_name TEXT DEFAULT ''")
     if "barge" not in cols:
         cur.execute("ALTER TABLE containers ADD COLUMN barge TEXT DEFAULT ''")
 
@@ -124,6 +127,7 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_no ON containers(container_no);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_client ON containers(client);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_barge ON containers(barge);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_cargo ON containers(cargo_name);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_dest ON containers(destination);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_status ON containers(status);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_sent ON containers(sent_date);")
@@ -184,6 +188,7 @@ class LoginResponse(BaseModel):
 class ContainerIn(BaseModel):
     container_no: str
     client: Optional[str] = ""
+    cargo_name: Optional[str] = ""
     barge: Optional[str] = ""
     destination: str
     status: str
@@ -194,9 +199,24 @@ class ContainerIn(BaseModel):
     added_by: Optional[str] = ""
 
 
+class BatchContainersIn(BaseModel):
+    container_numbers: List[str]
+    client: Optional[str] = ""
+    cargo_name: Optional[str] = ""
+    barge: Optional[str] = ""
+    destination: str
+    status: str
+    reason: Optional[str] = ""
+    sent_date: str
+    return_date: Optional[str] = None
+    country: Optional[str] = ""
+    added_by: Optional[str] = ""
+
+
 class ContainerUpdate(BaseModel):
     container_no: Optional[str] = None
     client: Optional[str] = None
+    cargo_name: Optional[str] = None
     barge: Optional[str] = None
     destination: Optional[str] = None
     status: Optional[str] = None
@@ -211,6 +231,7 @@ class ContainerOut(BaseModel):
     id: int
     container_no: str
     client: str
+    cargo_name: str = ""
     barge: str
     destination: str
     status: str
@@ -243,27 +264,44 @@ class RegistryAdd(BaseModel):
     note: Optional[str] = ""
 
 
-# ==================== РАСЧЕТ ДНЕЙ ====================
+# ==================== РАСЧЕТ ДНЕЙ И ДАТ ====================
+
+def parse_date_safe(d_str: Any) -> Optional[date]:
+    if not d_str:
+        return None
+    s = str(d_str).strip()
+    if not s or s in ("-", "None", "null"):
+        return None
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
+    return None
+
 
 def calculate_days(sent_date_str: str, return_date_str: Optional[str]) -> int:
-    try:
-        sent_d = datetime.strptime(sent_date_str.strip(), "%Y-%m-%d").date()
-    except Exception:
+    sent_d = parse_date_safe(sent_date_str)
+    if not sent_d:
         return 0
 
-    if return_date_str and str(return_date_str).strip() and str(return_date_str).strip() != "-":
-        try:
-            ret_d = datetime.strptime(str(return_date_str).strip(), "%Y-%m-%d").date()
-            return max((ret_d - sent_d).days, 0)
-        except Exception:
-            pass
+    ret_d = parse_date_safe(return_date_str)
+    if ret_d:
+        # Со дня отправки по день возврата включительно
+        diff = (ret_d - sent_d).days
+        return max(diff + 1, 1) if diff >= 0 else 0
 
-    return max((date.today() - sent_d).days, 0)
+    # Со дня отправки по сегодняшний день включительно (день отправки = 1 день в пути)
+    today = date.today()
+    if today >= sent_d:
+        return (today - sent_d).days + 1
+    return 0
 
 
 def row_to_container_out(r: sqlite3.Row) -> ContainerOut:
     d = dict(r)
     d["client"] = d.get("client") or ""
+    d["cargo_name"] = d.get("cargo_name") or ""
     d["barge"] = d.get("barge") or ""
     d["days_in_transit"] = calculate_days(d.get("sent_date", ""), d.get("return_date"))
     return ContainerOut(**d)
@@ -275,9 +313,15 @@ from fastapi.responses import FileResponse
 
 @app.get("/")
 def root():
-    index_file = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "static", "index.html"),
+        os.path.join(os.path.dirname(__file__), "index.html"),
+        os.path.join(os.path.dirname(__file__), "dislocation_pro", "static", "index.html"),
+        os.path.join(os.path.dirname(__file__), "dislocation_pro", "index.html"),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
     return {
         "status": "online",
         "service": "Система Мониторинга и Дислокации Контейнеров PRO",
@@ -369,9 +413,11 @@ def login(req: LoginRequest):
 
 @app.get("/containers", response_model=List[ContainerOut])
 def get_containers(
-    search: Optional[str] = Query(None, description="Поиск по номеру, грузополучателю или барже"),
-    destination: Optional[str] = Query(None, description="Фильтр по направлению"),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    search: Optional[str] = Query(None, description="Поиск по номеру, грузополучателю, грузу или барже"),
+    destination: Optional[str] = Query(None, description="Фильтр по нахождению (Хайратон / Термез-порт)"),
+    status: Optional[str] = Query(None, description="Фильтр по статусу (Груженный / Порожний)"),
+    client: Optional[str] = Query(None, description="Фильтр по грузополучателю"),
+    cargo: Optional[str] = Query(None, description="Фильтр по наименованию груза"),
     limit: int = Query(5000, le=20000)
 ):
     con = get_db()
@@ -382,16 +428,24 @@ def get_containers(
 
     if search:
         s = f"%{search.strip()}%"
-        query += " AND (container_no LIKE ? OR client LIKE ? OR barge LIKE ? OR reason LIKE ?)"
-        params.extend([s, s, s, s])
+        query += " AND (container_no LIKE ? OR client LIKE ? OR cargo_name LIKE ? OR barge LIKE ? OR destination LIKE ? OR reason LIKE ?)"
+        params.extend([s, s, s, s, s, s])
 
-    if destination and destination != "Все":
+    if destination and destination != "Все" and destination != "Все нахождения":
         query += " AND destination = ?"
         params.append(destination.strip())
 
-    if status and status != "Все":
+    if status and status != "Все" and status != "Все статусы":
         query += " AND status = ?"
         params.append(status.strip())
+
+    if client and client != "Все" and client != "Все грузополучатели":
+        query += " AND client = ?"
+        params.append(client.strip())
+
+    if cargo and cargo != "Все" and cargo != "Все грузы":
+        query += " AND cargo_name = ?"
+        params.append(cargo.strip())
 
     query += " ORDER BY id DESC LIMIT ?"
     params.append(limit)
@@ -416,47 +470,118 @@ def get_container(container_id: int):
     return row_to_container_out(row)
 
 
+import re
+
 @app.post("/containers", response_model=ContainerOut, status_code=status.HTTP_201_CREATED)
 def create_container(payload: ContainerIn):
-    c_no = payload.container_no.strip().upper()
-    if not c_no:
-        raise HTTPException(status_code=400, detail="Номер контейнера обязателен")
+    raw_nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', payload.container_no) if n.strip()]
+    seen = set()
+    numbers = []
+    for n in raw_nums:
+        if n not in seen:
+            seen.add(n)
+            numbers.append(n)
+
+    if not numbers:
+        raise HTTPException(status_code=400, detail="Укажите хотя бы один номер контейнера")
+    if len(numbers) > 20:
+        raise HTTPException(status_code=400, detail=f"Разрешено вводить не более 20 номеров за один раз (введено {len(numbers)})")
 
     con = get_db()
     cur = con.cursor()
     ts = now_ts()
+    first_id = None
 
-    cur.execute("""
-        INSERT INTO containers (
-            container_no, client, barge, destination, status, reason,
-            sent_date, return_date, country, added_by, changed_by, created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
-    """, (
-        c_no,
-        (payload.client or "").strip(),
-        (payload.barge or "").strip(),
-        payload.destination.strip(),
-        payload.status.strip(),
-        (payload.reason or "").strip(),
-        payload.sent_date.strip(),
-        payload.return_date.strip() if payload.return_date and payload.return_date.strip() != "-" else None,
-        (payload.country or "").strip(),
-        (payload.added_by or "").strip(),
-        ts,
-        ts
-    ))
-    cid = cur.lastrowid
-    ensure_registry(con, c_no)
+    for c_no in numbers:
+        cur.execute("""
+            INSERT INTO containers (
+                container_no, client, cargo_name, barge, destination, status, reason,
+                sent_date, return_date, country, added_by, changed_by, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+        """, (
+            c_no,
+            (payload.client or "").strip(),
+            (payload.cargo_name or "").strip(),
+            (payload.barge or "").strip(),
+            payload.destination.strip(),
+            payload.status.strip(),
+            (payload.reason or "").strip(),
+            payload.sent_date.strip(),
+            payload.return_date.strip() if payload.return_date and payload.return_date.strip() != "-" else None,
+            (payload.country or "").strip(),
+            (payload.added_by or "").strip(),
+            ts,
+            ts
+        ))
+        cid = cur.lastrowid
+        if first_id is None:
+            first_id = cid
+        ensure_registry(con, c_no)
+        log_history(con, cid, c_no, "CREATE", payload.dict(), payload.added_by or "")
 
-    log_history(con, cid, c_no, "CREATE", payload.dict(), payload.added_by or "")
     con.commit()
-
-    cur.execute("SELECT * FROM containers WHERE id = ?", (cid,))
+    cur.execute("SELECT * FROM containers WHERE id = ?", (first_id,))
     row = cur.fetchone()
     con.close()
 
     return row_to_container_out(row)
+
+
+@app.post("/containers/batch", response_model=List[ContainerOut], status_code=status.HTTP_201_CREATED)
+def create_containers_batch(payload: BatchContainersIn):
+    raw_nums = [n.strip().upper() for n in payload.container_numbers if n.strip()]
+    seen = set()
+    numbers = []
+    for n in raw_nums:
+        if n not in seen:
+            seen.add(n)
+            numbers.append(n)
+
+    if not numbers:
+        raise HTTPException(status_code=400, detail="Укажите хотя бы один номер контейнера")
+    if len(numbers) > 20:
+        raise HTTPException(status_code=400, detail=f"Разрешено вводить не более 20 номеров за один раз (введено {len(numbers)})")
+
+    con = get_db()
+    cur = con.cursor()
+    ts = now_ts()
+    created_ids = []
+
+    for c_no in numbers:
+        cur.execute("""
+            INSERT INTO containers (
+                container_no, client, cargo_name, barge, destination, status, reason,
+                sent_date, return_date, country, added_by, changed_by, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+        """, (
+            c_no,
+            (payload.client or "").strip(),
+            (payload.cargo_name or "").strip(),
+            (payload.barge or "").strip(),
+            payload.destination.strip(),
+            payload.status.strip(),
+            (payload.reason or "").strip(),
+            payload.sent_date.strip(),
+            payload.return_date.strip() if payload.return_date and payload.return_date.strip() != "-" else None,
+            (payload.country or "").strip(),
+            (payload.added_by or "").strip(),
+            ts,
+            ts
+        ))
+        cid = cur.lastrowid
+        created_ids.append(cid)
+        ensure_registry(con, c_no)
+        log_history(con, cid, c_no, "CREATE", payload.dict(), payload.added_by or "")
+
+    con.commit()
+    placeholders = ",".join("?" for _ in created_ids)
+    cur.execute(f"SELECT * FROM containers WHERE id IN ({placeholders}) ORDER BY id ASC", tuple(created_ids))
+    rows = cur.fetchall()
+    con.close()
+
+    return [row_to_container_out(r) for r in rows]
 
 
 @app.put("/containers/{container_id}", response_model=ContainerOut)
@@ -474,7 +599,7 @@ def update_container(container_id: int, payload: ContainerUpdate):
     new_data = dict(old_data)
     diff = {}
 
-    for field in ["container_no", "client", "barge", "destination", "status", "reason", "sent_date", "return_date", "country"]:
+    for field in ["container_no", "client", "cargo_name", "barge", "destination", "status", "reason", "sent_date", "return_date", "country"]:
         val = getattr(payload, field, None)
         if val is not None:
             clean_val = val.strip() if isinstance(val, str) else val
@@ -492,12 +617,13 @@ def update_container(container_id: int, payload: ContainerUpdate):
 
     cur.execute("""
         UPDATE containers
-        SET container_no=?, client=?, barge=?, destination=?, status=?, reason=?,
+        SET container_no=?, client=?, cargo_name=?, barge=?, destination=?, status=?, reason=?,
             sent_date=?, return_date=?, country=?, changed_by=?, updated_at=?
         WHERE id=?
     """, (
         new_data["container_no"],
         new_data["client"] or "",
+        new_data["cargo_name"] or "",
         new_data["barge"] or "",
         new_data["destination"],
         new_data["status"],
@@ -584,18 +710,27 @@ def get_stats():
     cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE sent_date = ?", (today_str,))
     sent_today = cur.fetchone()["cnt"]
 
-    # Задерживаются в Афганистане
+    # В Хайратоне (не возвращенные)
     cur.execute("""
         SELECT COUNT(*) as cnt FROM containers
-        WHERE destination = 'Афганистан' AND (return_date IS NULL OR return_date = '' OR return_date = '-')
+        WHERE (destination = 'Хайратон' OR destination = 'Афганистан') AND (return_date IS NULL OR return_date = '' OR return_date = '-')
     """)
-    afg_slow = cur.fetchone()["cnt"]
+    hairatan_cnt = cur.fetchone()["cnt"]
 
-    # В пути всего
-    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE status = 'В пути'")
-    in_transit = cur.fetchone()["cnt"]
+    # В Термез-порту (не возвращенные)
+    cur.execute("""
+        SELECT COUNT(*) as cnt FROM containers
+        WHERE (destination = 'Термез-порт' OR destination = 'Узбекистан') AND (return_date IS NULL OR return_date = '' OR return_date = '-')
+    """)
+    termez_cnt = cur.fetchone()["cnt"]
 
-    # По направлениям
+    # По статусам: Груженный и Порожний
+    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE status = 'Груженный'")
+    loaded_cnt = cur.fetchone()["cnt"]
+    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE status = 'Порожний'")
+    empty_cnt = cur.fetchone()["cnt"]
+
+    # По нахождениям
     cur.execute("""
         SELECT destination, COUNT(*) as cnt
         FROM containers
@@ -604,7 +739,7 @@ def get_stats():
     """)
     by_destination = {r["destination"]: r["cnt"] for r in cur.fetchall()}
 
-    # По статусам
+    # По всем статусам
     cur.execute("""
         SELECT status, COUNT(*) as cnt
         FROM containers
@@ -617,8 +752,13 @@ def get_stats():
     return {
         "total_containers": total,
         "sent_today": sent_today,
-        "afghanistan_delayed": afg_slow,
-        "in_transit": in_transit,
+        "hairatan_count": hairatan_cnt,
+        "termez_count": termez_cnt,
+        "loaded_count": loaded_cnt,
+        "empty_count": empty_cnt,
+        # Для обратной совместимости
+        "afghanistan_delayed": hairatan_cnt,
+        "in_transit": loaded_cnt,
         "by_destination": by_destination,
         "by_status": by_status
     }
@@ -677,31 +817,38 @@ def get_report():
     registry_active = {r["container_no"] for r in cur.fetchall()}
     con.close()
 
-    afg_now = []
-    afg_set = set()
+    hairatan_now = []
+    termez_now = []
 
     for c in containers:
         dest = (c.get("destination") or "").strip()
         ret = c.get("return_date")
         has_returned = bool(ret and ret != "-" and ret != "")
+        days = calculate_days(c.get("sent_date", ""), ret)
 
-        if dest == "Афганистан" and not has_returned:
-            days = calculate_days(c.get("sent_date", ""), ret)
-            c_copy = dict(c)
-            c_copy["days_in_afghanistan"] = days
-            afg_now.append(c_copy)
-            afg_set.add(c["container_no"])
+        c_copy = dict(c)
+        c_copy["days_in_transit"] = days
+        c_copy["client"] = c.get("client") or ""
+        c_copy["cargo_name"] = c.get("cargo_name") or ""
 
-    uz_now = sorted([cn for cn in registry_active if cn not in afg_set])
+        if not has_returned:
+            if dest in ("Хайратон", "Афганистан"):
+                hairatan_now.append(c_copy)
+            elif dest in ("Термез-порт", "Узбекистан"):
+                termez_now.append(c_copy)
 
     return {
         "summary": {
             "total_registry": len(registry_active),
-            "afghanistan_now_count": len(afg_now),
-            "uzbekistan_now_count": len(uz_now)
+            "hairatan_now_count": len(hairatan_now),
+            "termez_now_count": len(termez_now),
+            "afghanistan_now_count": len(hairatan_now),
+            "uzbekistan_now_count": len(termez_now)
         },
-        "afghanistan_now": afg_now,
-        "uzbekistan_now": uz_now
+        "hairatan_now": hairatan_now,
+        "termez_now": termez_now,
+        "afghanistan_now": hairatan_now,
+        "uzbekistan_now": [c["container_no"] for c in termez_now]
     }
 
 

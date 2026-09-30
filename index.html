@@ -283,13 +283,17 @@
     </div>
     <span class="divider">|</span>
     <div class="kpi-item red">
-      <span>Задерживаются в Афганистане:</span>
-      <span id="kpiSlowAfg">0</span>
+      <span>В Хайратоне:</span>
+      <span id="kpiHairatan">0</span>
     </div>
     <span class="divider">|</span>
     <div class="kpi-item sky">
-      <span>Всего в пути:</span>
-      <span id="kpiInTransit">0</span>
+      <span>В Термез-порту:</span>
+      <span id="kpiTermez">0</span>
+    </div>
+    <span class="divider">|</span>
+    <div class="kpi-item" style="color: #166534;">
+      <span>Груженных: <strong id="kpiLoaded" style="margin-right: 8px;">0</strong> Порожних: <strong id="kpiEmpty">0</strong></span>
     </div>
   </div>
 
@@ -297,32 +301,33 @@
   <div class="filter-bar">
     <div class="filter-group">
       <span>🔍</span>
-      <input type="text" id="searchInput" class="input-control search-input" placeholder="Поиск по номеру, клиенту, барже..." oninput="applyFilters()">
+      <input type="text" id="searchInput" class="input-control search-input" placeholder="Поиск по номеру, клиенту, грузу, барже..." oninput="applyFilters()">
     </div>
     <div class="filter-group">
-      <label>Направление:</label>
+      <label>Нахождение:</label>
       <select id="filterDest" class="select-control" onchange="applyFilters()">
-        <option value="Все">Все направления</option>
-        <option value="Казахстан">Казахстан</option>
-        <option value="Афганистан">Афганистан</option>
-        <option value="Узбекистан">Узбекистан</option>
-        <option value="Таджикистан">Таджикистан</option>
-        <option value="Туркменистан">Туркменистан</option>
-        <option value="Кыргызстан">Кыргызстан</option>
-        <option value="Россия">Россия</option>
-        <option value="Китай">Китай</option>
+        <option value="Все">Все нахождения</option>
+        <option value="Хайратон">Хайратон</option>
+        <option value="Термез-порт">Термез-порт</option>
       </select>
     </div>
     <div class="filter-group">
       <label>Статус:</label>
       <select id="filterStatus" class="select-control" onchange="applyFilters()">
         <option value="Все">Все статусы</option>
-        <option value="В пути">В пути</option>
-        <option value="Задержан">Задержан</option>
-        <option value="Доставлен">Доставлен</option>
-        <option value="Возвращен">Возвращен</option>
-        <option value="Погрузка">Погрузка</option>
+        <option value="Груженный">Груженный</option>
+        <option value="Порожний">Порожний</option>
       </select>
+    </div>
+    <div class="filter-group">
+      <label>Грузополучатель:</label>
+      <input list="filterClientsDatalist" id="filterClientInput" class="input-control" placeholder="Все клиенты" oninput="applyFilters()" style="max-width: 170px;">
+      <datalist id="filterClientsDatalist"></datalist>
+    </div>
+    <div class="filter-group">
+      <label>Груз:</label>
+      <input list="filterCargosDatalist" id="filterCargoInput" class="input-control" placeholder="Все грузы" oninput="applyFilters()" style="max-width: 150px;">
+      <datalist id="filterCargosDatalist"></datalist>
     </div>
     <button class="btn btn-secondary" onclick="resetFilters()">Сбросить</button>
   </div>
@@ -335,8 +340,9 @@
           <tr>
             <th>Номер</th>
             <th>Грузополучатель</th>
+            <th>Наименование груза</th>
             <th>Баржа</th>
-            <th>Направление</th>
+            <th>Нахождение</th>
             <th>Статус</th>
             <th>Причина</th>
             <th>Дата отправки</th>
@@ -346,7 +352,7 @@
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td colspan="10" style="text-align: center; padding: 30px; color: #64748b;">Загрузка данных...</td></tr>
+          <tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Загрузка данных...</td></tr>
         </tbody>
       </table>
     </div>
@@ -369,15 +375,32 @@
         <input type="hidden" id="editContainerId">
 
         <div class="form-group">
-          <label for="f_no">Номер контейнера *</label>
-          <input type="text" id="f_no" class="input-control" style="width:100%" placeholder="Например: TGHU1234567">
+          <label for="f_no" id="label_f_no">
+            Номер контейнера *
+            <span id="noBatchHint" style="font-size:0.78rem; font-weight:normal; color:#2563eb; margin-left:6px;">
+              (до 20 номеров через запятую, пробел или Enter)
+            </span>
+          </label>
+          <textarea id="f_no" class="input-control" rows="2" style="width:100%; font-family: monospace; font-size: 0.92rem; text-transform: uppercase;" placeholder="Например: TGHU1234567, MSKU7654321..." oninput="updateBatchBadge()"></textarea>
+          <div id="noBatchCount" style="font-size: 0.8rem; color: #475569; margin-top: 4px; font-weight: 500;">
+            Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">0</span> / 20
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="f_client">Грузополучатель</label>
-            <input type="text" id="f_client" class="input-control" style="width:100%" placeholder="Наименование клиента">
+            <label for="f_client">Грузополучатель (с историей)</label>
+            <input type="text" id="f_client" list="clientsDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите нового">
+            <datalist id="clientsDatalist"></datalist>
           </div>
+          <div class="form-group">
+            <label for="f_cargo">Наименование груза (с историей)</label>
+            <input type="text" id="f_cargo" list="cargosDatalist" class="input-control" style="width:100%" placeholder="Выберите или введите груз">
+            <datalist id="cargosDatalist"></datalist>
+          </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
             <label for="f_barge">Баржа *</label>
             <select id="f_barge" class="select-control" style="width:100%">
@@ -389,52 +412,42 @@
               <option value="Toshkent">Toshkent</option>
             </select>
           </div>
+          <div class="form-group">
+            <label for="f_dest">Нахождение *</label>
+            <select id="f_dest" class="select-control" style="width:100%">
+              <option value="Хайратон" selected>Хайратон</option>
+              <option value="Термез-порт">Термез-порт</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-row">
-          <div class="form-group">
-            <label for="f_dest">Направление *</label>
-            <select id="f_dest" class="select-control" style="width:100%">
-              <option value="Казахстан">Казахстан</option>
-              <option value="Афганистан" selected>Афганистан</option>
-              <option value="Узбекистан">Узбекистан</option>
-              <option value="Таджикистан">Таджикистан</option>
-              <option value="Туркменистан">Туркменистан</option>
-              <option value="Кыргызстан">Кыргызстан</option>
-              <option value="Россия">Россия</option>
-              <option value="Китай">Китай</option>
-            </select>
-          </div>
           <div class="form-group">
             <label for="f_status">Статус *</label>
             <select id="f_status" class="select-control" style="width:100%">
-              <option value="В пути" selected>В пути</option>
-              <option value="Задержан">Задержан</option>
-              <option value="Доставлен">Доставлен</option>
-              <option value="Возвращен">Возвращен</option>
-              <option value="Погрузка">Погрузка</option>
+              <option value="Груженный" selected>Груженный</option>
+              <option value="Порожний">Порожний</option>
             </select>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label for="f_reason">Причина / Примечание</label>
-          <input type="text" id="f_reason" class="input-control" style="width:100%" placeholder="Укажите причину при задержке">
+          <div class="form-group">
+            <label for="f_reason">Причина / Примечание</label>
+            <input type="text" id="f_reason" class="input-control" style="width:100%" placeholder="Примечание...">
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="f_sent_date">Дата отправки *</label>
-            <input type="date" id="f_sent_date" class="input-control" style="width:100%" onchange="updateCalcDays()">
+            <label for="f_sent_date">Дата отправки * <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(дд.мм.гггг)</span></label>
+            <input type="date" id="f_sent_date" class="input-control" style="width:100%" onchange="updateCalcDays()" oninput="updateCalcDays()">
           </div>
           <div class="form-group">
-            <label for="f_return_date">Дата возврата / прибытия</label>
-            <input type="date" id="f_return_date" class="input-control" style="width:100%" onchange="updateCalcDays()">
+            <label for="f_return_date">Дата возврата / прибытия <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(дд.мм.гггг)</span></label>
+            <input type="date" id="f_return_date" class="input-control" style="width:100%" onchange="updateCalcDays()" oninput="updateCalcDays()">
           </div>
         </div>
 
         <div id="modalInfoLine" style="font-size: 0.85rem; color: #475569; margin-top: 8px; font-style: italic;">
-          Дней в пути: <strong id="calcDays">0</strong>
+          Дней в пути: <strong id="calcDays" style="color: #1e40af; font-size: 1rem;">1</strong>
         </div>
       </div>
 
@@ -569,6 +582,69 @@
     let isOfflineMode = false;
     let currentEmployee = null;
     let currentAuthMode = 'register'; // 'register' или 'login'
+
+    // ==================== РАСЧЕТ ДАТ И ДНЕЙ В ПУТИ ====================
+    // Парсинг дат в формате YYYY-MM-DD или ДД.ММ.ГГГГ
+    function parseDateOnly(str) {
+      if (!str || str === '-' || str === 'null' || str === 'undefined') return null;
+      if (typeof str === 'string') {
+        const partsDot = str.trim().split('.');
+        if (partsDot.length === 3) {
+          return new Date(parseInt(partsDot[2], 10), parseInt(partsDot[1], 10) - 1, parseInt(partsDot[0], 10));
+        }
+        const partsDash = str.trim().split('-');
+        if (partsDash.length === 3) {
+          if (partsDash[0].length === 4) {
+            return new Date(parseInt(partsDash[0], 10), parseInt(partsDash[1], 10) - 1, parseInt(partsDash[2], 10));
+          } else {
+            return new Date(parseInt(partsDash[2], 10), parseInt(partsDash[1], 10) - 1, parseInt(partsDash[0], 10));
+          }
+        }
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // Форматирование даты в стандартный правильный порядок (ДД.ММ.ГГГГ)
+    function formatDate(val) {
+      if (!val || val === '-' || val === 'null' || val === 'undefined') return '-';
+      const d = parseDateOnly(val);
+      if (!d) return val;
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}.${mm}.${yyyy}`;
+    }
+
+    // Приведение даты в формат YYYY-MM-DD для HTML input type="date"
+    function toInputDateValue(val) {
+      const d = parseDateOnly(val);
+      if (!d) return '';
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // Расчет дней в пути: со дня отправки по день возврата (или сегодняшний день) включительно.
+    // День отправки считается за 1 день пути!
+    function calculateDaysInTransit(sentStr, returnStr) {
+      const sent = parseDateOnly(sentStr);
+      if (!sent) return 0;
+
+      const ret = parseDateOnly(returnStr);
+      if (ret) {
+        const diffMs = ret.getTime() - sent.getTime();
+        const diffDays = Math.round(diffMs / 86400000);
+        return diffDays >= 0 ? diffDays + 1 : 0;
+      }
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffMs = today.getTime() - sent.getTime();
+      const diffDays = Math.round(diffMs / 86400000);
+      return diffDays >= 0 ? diffDays + 1 : 0;
+    }
 
     function switchAuthMode(mode) {
       currentAuthMode = mode;
@@ -877,15 +953,15 @@
       if (stored) {
         try { return JSON.parse(stored); } catch (e) {}
       }
-      // Демо-данные по умолчанию
       return [
         {
           id: 1,
           container_no: "MSKU9023411",
           client: "OOO 'Global Trade'",
+          cargo_name: "Мука пшеничная 1 сорт",
           barge: "Zarafshon",
-          destination: "Афганистан",
-          status: "В пути",
+          destination: "Хайратон",
+          status: "Груженный",
           reason: "",
           sent_date: new Date().toISOString().split('T')[0],
           return_date: null,
@@ -896,9 +972,10 @@
           id: 2,
           container_no: "TGHU5562180",
           client: "Asia Trans Logistics",
+          cargo_name: "Сахар-песок",
           barge: "Surxon",
-          destination: "Казахстан",
-          status: "В пути",
+          destination: "Термез-порт",
+          status: "Порожний",
           reason: "",
           sent_date: new Date().toISOString().split('T')[0],
           return_date: null,
@@ -909,9 +986,10 @@
           id: 3,
           container_no: "CXIU8812904",
           client: "Silk Road Express",
+          cargo_name: "Строительные материалы",
           barge: "O'zbekiston",
-          destination: "Афганистан",
-          status: "Задержан",
+          destination: "Хайратон",
+          status: "Груженный",
           reason: "Ожидание таможенного досмотра",
           sent_date: "2026-08-10",
           return_date: null,
@@ -925,6 +1003,108 @@
       localStorage.setItem('dislocation_containers_cache', JSON.stringify(data));
     }
 
+    // ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ ==================
+    function getRememberedClients() {
+      try {
+        const stored = localStorage.getItem('dislocation_clients_history');
+        const list = stored ? JSON.parse(stored) : [];
+        const fromContainers = allContainers.map(c => (c.client || '').trim()).filter(Boolean);
+        return Array.from(new Set([...list, ...fromContainers])).sort();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function rememberClient(name) {
+      if (!name || !name.trim()) return;
+      const clean = name.trim();
+      const list = getRememberedClients();
+      if (!list.includes(clean)) {
+        list.push(clean);
+        localStorage.setItem('dislocation_clients_history', JSON.stringify(list));
+      }
+      refreshSuggestions();
+    }
+
+    function getRememberedCargos() {
+      try {
+        const stored = localStorage.getItem('dislocation_cargos_history');
+        const list = stored ? JSON.parse(stored) : [];
+        const fromContainers = allContainers.map(c => (c.cargo_name || '').trim()).filter(Boolean);
+        return Array.from(new Set([...list, ...fromContainers])).sort();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function rememberCargo(name) {
+      if (!name || !name.trim()) return;
+      const clean = name.trim();
+      const list = getRememberedCargos();
+      if (!list.includes(clean)) {
+        list.push(clean);
+        localStorage.setItem('dislocation_cargos_history', JSON.stringify(list));
+      }
+      refreshSuggestions();
+    }
+
+    function refreshSuggestions() {
+      const clients = getRememberedClients();
+      const cargos = getRememberedCargos();
+
+      const fillDatalist = (id, items) => {
+        const dl = document.getElementById(id);
+        if (dl) {
+          dl.innerHTML = items.map(item => `<option value="${escapeHtml(item)}">`).join('');
+        }
+      };
+
+      fillDatalist('clientsDatalist', clients);
+      fillDatalist('filterClientsDatalist', clients);
+      fillDatalist('cargosDatalist', cargos);
+      fillDatalist('filterCargosDatalist', cargos);
+    }
+
+    // ================== ПАРСИНГ НОМЕРОВ КОНТЕЙНЕРОВ (ДО 20 ШТ) ==================
+    function parseContainerNumbers(str) {
+      if (!str) return [];
+      const tokens = str.split(/[\r\n,;\s]+/);
+      const seen = new Set();
+      const result = [];
+      for (let t of tokens) {
+        t = t.trim().toUpperCase();
+        if (t && !seen.has(t)) {
+          seen.add(t);
+          result.push(t);
+        }
+      }
+      return result;
+    }
+
+    function updateBatchBadge() {
+      const isEdit = Boolean(document.getElementById('editContainerId').value);
+      const val = document.getElementById('f_no').value;
+      const list = parseContainerNumbers(val);
+      const badgeWrap = document.getElementById('noBatchCount');
+
+      if (isEdit) {
+        if (badgeWrap) badgeWrap.style.display = 'none';
+        return;
+      }
+
+      if (badgeWrap) {
+        badgeWrap.style.display = 'block';
+        if (list.length > 20) {
+          badgeWrap.style.color = '#dc2626';
+          badgeWrap.innerHTML = `⚠️ Распознано: <span style="font-weight:700;">${list.length}</span> / 20. Превышен лимит! Допустимо не более 20 номеров.`;
+        } else {
+          badgeWrap.style.color = '#475569';
+          badgeWrap.innerHTML = `Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af;">${list.length}</span> / 20`;
+        }
+      }
+    }
+
+    // ================== ЗАГРУЗКА И СИНХРОНИЗАЦИЯ ==================
     async function fetchContainers() {
       const api = getApiBase();
       try {
@@ -933,13 +1113,15 @@
         allContainers = await res.json();
         setConnectionStatus(true, api || 'локальный хост');
         saveLocalData(allContainers);
-        renderTable(allContainers);
+        refreshSuggestions();
+        applyFilters();
         fetchStats();
       } catch (err) {
         console.warn('Сервер недоступен, переход в автономный режим:', err);
         setConnectionStatus(false);
         allContainers = getLocalData();
-        renderTable(allContainers);
+        refreshSuggestions();
+        applyFilters();
         updateOfflineStats();
       }
     }
@@ -951,53 +1133,74 @@
         if (!res.ok) return;
         const st = await res.json();
         document.getElementById('kpiSentToday').textContent = st.sent_today || 0;
-        document.getElementById('kpiSlowAfg').textContent = st.afghanistan_delayed || 0;
-        document.getElementById('kpiInTransit').textContent = st.in_transit || 0;
+        document.getElementById('kpiHairatan').textContent = st.hairatan_count || 0;
+        document.getElementById('kpiTermez').textContent = st.termez_count || 0;
+        document.getElementById('kpiLoaded').textContent = st.loaded_count || 0;
+        document.getElementById('kpiEmpty').textContent = st.empty_count || 0;
       } catch (e) {
         updateOfflineStats();
       }
     }
 
     function updateOfflineStats() {
-      const today = new Date().toISOString().split('T')[0];
-      const sentToday = allContainers.filter(c => c.sent_date === today).length;
-      const slowAfg = allContainers.filter(c => c.destination === 'Афганистан' && (!c.return_date || c.return_date === '-') && (c.status === 'Задержан' || c.days_in_transit > 30)).length;
-      const inTransit = allContainers.filter(c => c.status === 'В пути').length;
+      const today = toInputDateValue(new Date());
+      const sentToday = allContainers.filter(c => toInputDateValue(c.sent_date) === today).length;
+      const hairatan = allContainers.filter(c => {
+        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        return (c.destination === 'Хайратон' || c.destination === 'Афганистан') && !hasRet;
+      }).length;
+      const termez = allContainers.filter(c => {
+        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        return (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && !hasRet;
+      }).length;
+      const loaded = allContainers.filter(c => c.status === 'Груженный').length;
+      const empty = allContainers.filter(c => c.status === 'Порожний').length;
 
       document.getElementById('kpiSentToday').textContent = sentToday;
-      document.getElementById('kpiSlowAfg').textContent = slowAfg;
-      document.getElementById('kpiInTransit').textContent = inTransit;
+      document.getElementById('kpiHairatan').textContent = hairatan;
+      document.getElementById('kpiTermez').textContent = termez;
+      document.getElementById('kpiLoaded').textContent = loaded;
+      document.getElementById('kpiEmpty').textContent = empty;
     }
 
     function renderTable(list) {
       const tbody = document.getElementById('tableBody');
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 30px; color: #64748b;">Нет записей</td></tr>`;
         document.getElementById('footerCount').textContent = 'Всего контейнеров: 0';
         return;
       }
 
       tbody.innerHTML = list.map(c => {
-        const isAfgLate = (c.destination === 'Афганистан' && !c.return_date && c.days_in_transit > 30);
-        const isLate = c.status === 'Задержан' || isAfgLate;
-        const isDone = c.status === 'Доставлен' || c.status === 'Возвращен';
-        const rowClass = isLate ? 'late' : (isDone ? 'done' : '');
+        const daysInTransit = calculateDaysInTransit(c.sent_date, c.return_date);
+        const hasReturned = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
+        const isLate = (c.destination === 'Хайратон' && !hasReturned && daysInTransit > 30);
+        const rowClass = isLate ? 'late' : '';
 
-        let statusBadge = `<span class="badge badge-transit">${c.status}</span>`;
-        if (c.status === 'Задержан') statusBadge = `<span class="badge badge-delayed">Задержан</span>`;
-        if (isDone) statusBadge = `<span class="badge badge-delivered">${c.status}</span>`;
+        let statusBadge = `<span class="badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;">Груженный</span>`;
+        if (c.status === 'Порожний') {
+          statusBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">Порожний</span>`;
+        }
+
+        let locBadge = `<span style="font-weight:600; color:#1e40af;">${escapeHtml(c.destination)}</span>`;
+        if (c.destination === 'Термез-порт') {
+          locBadge = `<span style="font-weight:600; color:#0d9488;">Термез-порт</span>`;
+        } else if (c.destination === 'Хайратон') {
+          locBadge = `<span style="font-weight:600; color:#b91c1c;">Хайратон</span>`;
+        }
 
         return `
           <tr class="${rowClass}" onclick="openEditModal(${c.id})">
             <td><strong>${escapeHtml(c.container_no)}</strong></td>
             <td>${escapeHtml(c.client || '-')}</td>
+            <td>${escapeHtml(c.cargo_name || '-')}</td>
             <td>${escapeHtml(c.barge || '-')}</td>
-            <td>${escapeHtml(c.destination)}</td>
+            <td>${locBadge}</td>
             <td>${statusBadge}</td>
             <td>${escapeHtml(c.reason || '-')}</td>
-            <td>${escapeHtml(c.sent_date)}</td>
-            <td>${escapeHtml(c.return_date || '-')}</td>
-            <td style="text-align: center; font-weight: 600;">${c.days_in_transit}</td>
+            <td>${formatDate(c.sent_date)}</td>
+            <td>${formatDate(c.return_date)}</td>
+            <td style="text-align: center; font-weight: 700; color: #1e3a8a;">${daysInTransit}</td>
             <td>${escapeHtml(c.added_by || '-')}</td>
           </tr>
         `;
@@ -1010,18 +1213,24 @@
       const search = document.getElementById('searchInput').value.trim().toLowerCase();
       const dest = document.getElementById('filterDest').value;
       const status = document.getElementById('filterStatus').value;
+      const client = document.getElementById('filterClientInput').value.trim().toLowerCase();
+      const cargo = document.getElementById('filterCargoInput').value.trim().toLowerCase();
 
       const filtered = allContainers.filter(c => {
         const matchSearch = !search ||
           (c.container_no && c.container_no.toLowerCase().includes(search)) ||
           (c.client && c.client.toLowerCase().includes(search)) ||
+          (c.cargo_name && c.cargo_name.toLowerCase().includes(search)) ||
           (c.barge && c.barge.toLowerCase().includes(search)) ||
+          (c.destination && c.destination.toLowerCase().includes(search)) ||
           (c.reason && c.reason.toLowerCase().includes(search));
 
-        const matchDest = (dest === 'Все' || c.destination === dest);
-        const matchStatus = (status === 'Все' || c.status === status);
+        const matchDest = (dest === 'Все' || dest === 'Все нахождения' || c.destination === dest);
+        const matchStatus = (status === 'Все' || status === 'Все статусы' || c.status === status);
+        const matchClient = !client || (c.client && c.client.toLowerCase().includes(client));
+        const matchCargo = !cargo || (c.cargo_name && c.cargo_name.toLowerCase().includes(cargo));
 
-        return matchSearch && matchDest && matchStatus;
+        return matchSearch && matchDest && matchStatus && matchClient && matchCargo;
       });
 
       renderTable(filtered);
@@ -1031,22 +1240,30 @@
       document.getElementById('searchInput').value = '';
       document.getElementById('filterDest').value = 'Все';
       document.getElementById('filterStatus').value = 'Все';
+      document.getElementById('filterClientInput').value = '';
+      document.getElementById('filterCargoInput').value = '';
       renderTable(allContainers);
     }
 
     function openAddModal() {
-      document.getElementById('modalTitle').textContent = 'Добавить контейнер';
+      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры (до 20 шт)';
       document.getElementById('editContainerId').value = '';
       document.getElementById('f_no').value = '';
+      document.getElementById('f_no').rows = 3;
       document.getElementById('f_client').value = '';
+      document.getElementById('f_cargo').value = '';
       document.getElementById('f_barge').value = 'Zarafshon';
-      document.getElementById('f_dest').value = 'Афганистан';
-      document.getElementById('f_status').value = 'В пути';
+      document.getElementById('f_dest').value = 'Хайратон';
+      document.getElementById('f_status').value = 'Груженный';
       document.getElementById('f_reason').value = '';
-      document.getElementById('f_sent_date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('f_sent_date').value = toInputDateValue(new Date());
       document.getElementById('f_return_date').value = '';
       document.getElementById('btnDelete').style.display = 'none';
+      const hint = document.getElementById('noBatchHint');
+      if (hint) hint.style.display = 'inline';
+      updateBatchBadge();
       updateCalcDays();
+      refreshSuggestions();
       openModal('containerModal');
     }
 
@@ -1057,108 +1274,177 @@
       document.getElementById('modalTitle').textContent = 'Данные контейнера';
       document.getElementById('editContainerId').value = c.id;
       document.getElementById('f_no').value = c.container_no || '';
+      document.getElementById('f_no').rows = 1;
       document.getElementById('f_client').value = c.client || '';
-      document.getElementById('f_barge').value = c.barge || '';
-      document.getElementById('f_dest').value = c.destination || 'Афганистан';
-      document.getElementById('f_status').value = c.status || 'В пути';
+      document.getElementById('f_cargo').value = c.cargo_name || '';
+      document.getElementById('f_barge').value = c.barge || 'Zarafshon';
+      document.getElementById('f_dest').value = (c.destination === 'Термез-порт') ? 'Термез-порт' : 'Хайратон';
+      document.getElementById('f_status').value = (c.status === 'Порожний') ? 'Порожний' : 'Груженный';
       document.getElementById('f_reason').value = c.reason || '';
-      document.getElementById('f_sent_date').value = c.sent_date || '';
-      document.getElementById('f_return_date').value = c.return_date || '';
+      document.getElementById('f_sent_date').value = toInputDateValue(c.sent_date);
+      document.getElementById('f_return_date').value = toInputDateValue(c.return_date);
       document.getElementById('btnDelete').style.display = 'inline-block';
+      const hint = document.getElementById('noBatchHint');
+      if (hint) hint.style.display = 'none';
+      updateBatchBadge();
       updateCalcDays();
+      refreshSuggestions();
       openModal('containerModal');
     }
 
     function updateCalcDays() {
       const s = document.getElementById('f_sent_date').value;
       const r = document.getElementById('f_return_date').value;
-      if (!s) {
-        document.getElementById('calcDays').textContent = '0';
-        return;
-      }
-      const sentDate = new Date(s);
-      const endDate = r ? new Date(r) : new Date();
-      const diffTime = Math.max(endDate - sentDate, 0);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      document.getElementById('calcDays').textContent = diffDays;
+      const days = calculateDaysInTransit(s, r);
+      document.getElementById('calcDays').textContent = days;
     }
 
     async function saveContainer() {
       const id = document.getElementById('editContainerId').value;
-      const no = document.getElementById('f_no').value.trim().toUpperCase();
-      if (!no) {
-        alert('Введите номер контейнера!');
+      const rawNo = document.getElementById('f_no').value;
+      const clientVal = document.getElementById('f_client').value.trim();
+      const cargoVal = document.getElementById('f_cargo').value.trim();
+      const bargeVal = document.getElementById('f_barge').value.trim();
+      const destVal = document.getElementById('f_dest').value;
+      const statusVal = document.getElementById('f_status').value;
+      const reasonVal = document.getElementById('f_reason').value.trim();
+      const sentVal = document.getElementById('f_sent_date').value;
+      const retVal = document.getElementById('f_return_date').value || null;
+
+      if (!sentVal) {
+        alert('Укажите дату отправки!');
         return;
       }
 
-      const payload = {
-        container_no: no,
-        client: document.getElementById('f_client').value.trim(),
-        barge: document.getElementById('f_barge').value.trim(),
-        destination: document.getElementById('f_dest').value,
-        status: document.getElementById('f_status').value,
-        reason: document.getElementById('f_reason').value.trim(),
-        sent_date: document.getElementById('f_sent_date').value,
-        return_date: document.getElementById('f_return_date').value || null
-      };
-
-      const api = getApiBase();
-      const calcTransit = (s, r) => {
-        if (!s) return 0;
-        const sent = new Date(s);
-        const end = (r && r !== '-') ? new Date(r) : new Date();
-        return Math.max(Math.ceil((end - sent) / (1000 * 60 * 60 * 24)), 0);
-      };
+      // Запоминаем грузополучателя и наименование груза
+      if (clientVal) rememberClient(clientVal);
+      if (cargoVal) rememberCargo(cargoVal);
 
       const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
+      const api = getApiBase();
 
-      if (isOfflineMode) {
-        // Оффлайн режим: сохраняем в LocalStorage
-        payload.days_in_transit = calcTransit(payload.sent_date, payload.return_date);
-        if (id) {
+      if (id) {
+        // Редактирование существующего одного контейнера
+        const singleNo = rawNo.trim().toUpperCase();
+        if (!singleNo) {
+          alert('Введите номер контейнера!');
+          return;
+        }
+
+        const payload = {
+          container_no: singleNo,
+          client: clientVal,
+          cargo_name: cargoVal,
+          barge: bargeVal,
+          destination: destVal,
+          status: statusVal,
+          reason: reasonVal,
+          sent_date: sentVal,
+          return_date: retVal,
+          changed_by: empName
+        };
+
+        if (isOfflineMode) {
           const idx = allContainers.findIndex(x => x.id == id);
           if (idx !== -1) {
-            allContainers[idx] = { ...allContainers[idx], ...payload, changed_by: empName };
+            allContainers[idx] = {
+              ...allContainers[idx],
+              ...payload,
+              days_in_transit: calculateDaysInTransit(payload.sent_date, payload.return_date)
+            };
+            saveLocalData(allContainers);
           }
-        } else {
-          payload.id = Date.now();
-          payload.added_by = empName;
-          allContainers.unshift(payload);
+          closeModal('containerModal');
+          applyFilters();
+          updateOfflineStats();
+          return;
         }
-        saveLocalData(allContainers);
-        closeModal('containerModal');
-        renderTable(allContainers);
-        updateOfflineStats();
-        return;
-      }
 
-      try {
-        let res;
-        if (id) {
-          payload.changed_by = empName;
-          res = await fetch(`${api}/containers/${id}`, {
+        try {
+          const res = await fetch(`${api}/containers/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-        } else {
-          payload.added_by = empName;
-          res = await fetch(`${api}/containers`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+          if (res.ok) {
+            closeModal('containerModal');
+            fetchContainers();
+          } else {
+            alert('Ошибка сохранения: ' + (await res.text()));
+          }
+        } catch (e) {
+          alert('Ошибка связи: ' + e.message);
         }
 
-        if (res.ok) {
-          closeModal('containerModal');
-          fetchContainers();
-        } else {
-          const err = await res.text();
-          alert('Ошибка сохранения: ' + err);
+      } else {
+        // Добавление новых контейнеров (до 20 шт)
+        const numbers = parseContainerNumbers(rawNo);
+        if (numbers.length === 0) {
+          alert('Укажите хотя бы один номер контейнера!');
+          return;
         }
-      } catch (e) {
-        alert('Ошибка связи: ' + e.message);
+        if (numbers.length > 20) {
+          alert(`Вы ввели ${numbers.length} номеров. Максимально разрешено до 20 номеров за раз!`);
+          return;
+        }
+
+        const basePayload = {
+          client: clientVal,
+          cargo_name: cargoVal,
+          barge: bargeVal,
+          destination: destVal,
+          status: statusVal,
+          reason: reasonVal,
+          sent_date: sentVal,
+          return_date: retVal,
+          added_by: empName
+        };
+
+        if (isOfflineMode) {
+          const nowTs = Date.now();
+          numbers.forEach((c_no, i) => {
+            allContainers.unshift({
+              id: nowTs + i,
+              container_no: c_no,
+              ...basePayload,
+              days_in_transit: calculateDaysInTransit(basePayload.sent_date, basePayload.return_date)
+            });
+          });
+          saveLocalData(allContainers);
+          closeModal('containerModal');
+          applyFilters();
+          updateOfflineStats();
+          return;
+        }
+
+        try {
+          const res = await fetch(`${api}/containers/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              container_numbers: numbers,
+              ...basePayload
+            })
+          });
+
+          if (res.ok) {
+            closeModal('containerModal');
+            fetchContainers();
+          } else {
+            // Если пакетный эндпоинт вернул ошибку, создаем через обычный POST в цикле
+            for (const c_no of numbers) {
+              await fetch(`${api}/containers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ container_no: c_no, ...basePayload })
+              });
+            }
+            closeModal('containerModal');
+            fetchContainers();
+          }
+        } catch (e) {
+          alert('Ошибка связи: ' + e.message);
+        }
       }
     }
 
@@ -1171,7 +1457,7 @@
         allContainers = allContainers.filter(x => x.id != id);
         saveLocalData(allContainers);
         closeModal('containerModal');
-        renderTable(allContainers);
+        applyFilters();
         updateOfflineStats();
         return;
       }
@@ -1181,7 +1467,7 @@
         const res = await fetch(`${api}/containers/${id}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: 'Web пользователь' })
+          body: JSON.stringify({ user: (currentEmployee ? currentEmployee.username : 'Web пользователь') })
         });
         if (res.ok) {
           closeModal('containerModal');
@@ -1198,19 +1484,21 @@
       const data = allContainers.map(c => ({
         'Номер': c.container_no,
         'Грузополучатель': c.client || '-',
+        'Наименование груза': c.cargo_name || '-',
         'Баржа': c.barge || '-',
-        'Направление': c.destination,
+        'Нахождение': c.destination,
         'Статус': c.status,
         'Причина': c.reason || '-',
-        'Дата отправки': c.sent_date,
-        'Дата возврата': c.return_date || '-',
-        'Дней в пути': c.days_in_transit,
+        'Дата отправки': formatDate(c.sent_date),
+        'Дата возврата': formatDate(c.return_date),
+        'Дней в пути': calculateDaysInTransit(c.sent_date, c.return_date),
         'Добавлен пользователем': c.added_by || '-'
       }));
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Дислокация');
-      XLSX.writeFile(wb, `Дислокация_${new Date().toISOString().split('T')[0]}.xlsx`);
+      const todayStr = formatDate(new Date()).replace(/\./g, '-');
+      XLSX.writeFile(wb, `Дислокация_${todayStr}.xlsx`);
     }
 
     function openChartModal() {
@@ -1229,7 +1517,7 @@
           datasets: [{
             label: 'Количество контейнеров',
             data: Object.values(counts),
-            backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#64748b', '#ec4899']
+            backgroundColor: ['#ef4444', '#0d9488', '#3b82f6', '#10b981', '#f59e0b']
           }]
         },
         options: {
@@ -1256,34 +1544,43 @@
 
       // Если оффлайн или сервер не ответил — формируем отчет из локального списка
       if (!rep) {
-        const afgList = allContainers.filter(c => c.destination === 'Афганистан' && (!c.return_date || c.return_date === '-'));
-        const uzList = allContainers.filter(c => c.destination === 'Узбекистан' || (c.return_date && c.return_date !== '-'));
+        const hList = allContainers.filter(c => (c.destination === 'Хайратон' || c.destination === 'Афганистан') && (!c.return_date || c.return_date === '-'));
+        const tList = allContainers.filter(c => (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && (!c.return_date || c.return_date === '-'));
         rep = {
           summary: {
-            afghanistan_now_count: afgList.length,
-            uzbekistan_now_count: uzList.length
+            hairatan_now_count: hList.length,
+            termez_now_count: tList.length
           },
-          afghanistan_now: afgList.map(c => ({
+          hairatan_now: hList.map(c => ({
             container_no: c.container_no,
-            days_in_afghanistan: c.days_in_transit,
+            cargo_name: c.cargo_name || '',
+            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
             status: c.status
           })),
-          uzbekistan_now: uzList.map(c => c.container_no)
+          termez_now: tList.map(c => ({
+            container_no: c.container_no,
+            cargo_name: c.cargo_name || '',
+            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
+            status: c.status
+          }))
         };
       }
 
+      const hCount = (rep.summary && rep.summary.hairatan_now_count !== undefined) ? rep.summary.hairatan_now_count : (rep.hairatan_now ? rep.hairatan_now.length : 0);
+      const tCount = (rep.summary && rep.summary.termez_now_count !== undefined) ? rep.summary.termez_now_count : (rep.termez_now ? rep.termez_now.length : 0);
+
       cont.innerHTML = `
         <div style="display: flex; gap: 20px;">
-          <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-            <h4 style="color: #dc2626; margin-bottom: 8px;">В Афганистане (${rep.summary.afghanistan_now_count})</h4>
-            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem;">
-              ${rep.afghanistan_now.length ? rep.afghanistan_now.map(a => `<li><strong>${escapeHtml(a.container_no)}</strong> — ${a.days_in_afghanistan} дн. (${escapeHtml(a.status || '')})</li>`).join('') : '<li style="color:#64748b">Нет данных</li>'}
+          <div style="flex: 1; border: 1px solid #fecaca; background: #fff5f5; border-radius: 8px; padding: 14px;">
+            <h4 style="color: #dc2626; margin-bottom: 10px; font-size: 1.05rem;">📍 В Хайратоне (${hCount})</h4>
+            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
+              ${(rep.hairatan_now && rep.hairatan_now.length) ? rep.hairatan_now.map(a => `<li><strong>${escapeHtml(a.container_no)}</strong> ${a.cargo_name ? '[' + escapeHtml(a.cargo_name) + ']' : ''} — ${a.days_in_transit || a.days_in_afghanistan || 0} дн. (${escapeHtml(a.status || '')})</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
             </ul>
           </div>
-          <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-            <h4 style="color: #16a34a; margin-bottom: 8px;">В Узбекистане (${rep.summary.uzbekistan_now_count})</h4>
-            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem;">
-              ${rep.uzbekistan_now.length ? rep.uzbekistan_now.map(u => `<li>${escapeHtml(u)}</li>`).join('') : '<li style="color:#64748b">Нет данных</li>'}
+          <div style="flex: 1; border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; padding: 14px;">
+            <h4 style="color: #16a34a; margin-bottom: 10px; font-size: 1.05rem;">📍 В Термез-порту (${tCount})</h4>
+            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
+              ${(rep.termez_now && rep.termez_now.length) ? rep.termez_now.map(u => `<li><strong>${escapeHtml(u.container_no || u)}</strong> ${u.cargo_name ? '[' + escapeHtml(u.cargo_name) + ']' : ''} — ${u.status || ''}</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
             </ul>
           </div>
         </div>

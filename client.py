@@ -63,16 +63,15 @@ current_user = None
 user_role = "dispatcher"
 auto_refresh_job = None
 
-# Справочники для выпадающих списков
+# Справочники для выпадающих списков (строго по 2 варианта согласно требованиям)
 DESTINATIONS = [
-    "Казахстан",
-    "Афганистан",
-    "Узбекистан",
-    "Таджикистан",
-    "Туркменистан",
-    "Кыргызстан",
-    "Россия",
-    "Китай"
+    "Хайратон",
+    "Термез-порт"
+]
+
+STATUSES = [
+    "Груженный",
+    "Порожний"
 ]
 
 BARGES = [
@@ -84,20 +83,49 @@ BARGES = [
     "Toshkent"
 ]
 
-STATUSES = [
-    "В пути",
-    "Задержан",
-    "Доставлен",
-    "Возвращен",
-    "Погрузка"
-]
+
+# ================== ЗАПОМИНАНИЕ ГРУЗОПОЛУЧАТЕЛЕЙ И ГРУЗОВ ==================
+def get_remembered_clients():
+    history = app_config.get("clients_history", [])
+    from_containers = [c.get("client", "").strip() for c in _raw_containers if c.get("client")]
+    combined = sorted(list(set(history + from_containers)))
+    return combined if combined else ["OOO 'Global Trade'", "Asia Trans Logistics", "Silk Road Express"]
+
+
+def remember_client(name):
+    if not name or not name.strip():
+        return
+    clean = name.strip()
+    history = app_config.get("clients_history", [])
+    if clean not in history:
+        history.append(clean)
+        app_config["clients_history"] = history
+        save_config(app_config)
+
+
+def get_remembered_cargos():
+    history = app_config.get("cargos_history", [])
+    from_containers = [c.get("cargo_name", "").strip() for c in _raw_containers if c.get("cargo_name")]
+    combined = sorted(list(set(history + from_containers)))
+    return combined if combined else ["Мука пшеничная 1 сорт", "Сахар-песок", "Строительные материалы"]
+
+
+def remember_cargo(name):
+    if not name or not name.strip():
+        return
+    clean = name.strip()
+    history = app_config.get("cargos_history", [])
+    if clean not in history:
+        history.append(clean)
+        app_config["cargos_history"] = history
+        save_config(app_config)
 
 
 # ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
 def parse_date(val):
     if not val or val == "-":
         return None
-    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y"):
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d"):
         try:
             return datetime.strptime(str(val).strip(), fmt).date()
         except Exception:
@@ -111,8 +139,19 @@ def calculate_days_local(sent_str, return_str):
         return 0
     r = parse_date(return_str)
     if r:
-        return max((r - s).days, 0)
-    return max((date.today() - s).days, 0)
+        diff = (r - s).days
+        return max(diff + 1, 1) if diff >= 0 else 0
+    today = date.today()
+    if today >= s:
+        return (today - s).days + 1
+    return 0
+
+
+def format_date_ru(val):
+    d = parse_date(val)
+    if not d:
+        return "-"
+    return d.strftime("%d.%m.%Y")
 
 
 # ================== ОКНО НАСТРОЕК СЕРВЕРА ==================
@@ -284,17 +323,23 @@ _row_id_map = {}
 
 def load_data():
     global _raw_containers
-    search_val = search_entry.get().strip()
-    dest_val = filter_dest_combo.get()
-    status_val = filter_status_combo.get()
+    search_val = search_entry.get().strip() if 'search_entry' in globals() else ""
+    dest_val = filter_dest_combo.get() if 'filter_dest_combo' in globals() else ""
+    status_val = filter_status_combo.get() if 'filter_status_combo' in globals() else ""
+    client_val = filter_client_combo.get().strip() if 'filter_client_combo' in globals() else ""
+    cargo_val = filter_cargo_combo.get().strip() if 'filter_cargo_combo' in globals() else ""
 
     params = {}
     if search_val:
         params["search"] = search_val
-    if dest_val and dest_val != "Все направления":
+    if dest_val and dest_val not in ("Все нахождения", "Все направления"):
         params["destination"] = dest_val
-    if status_val and status_val != "Все статусы":
+    if status_val and status_val not in ("Все статусы", "Все"):
         params["status"] = status_val
+    if client_val and client_val != "Все клиенты":
+        params["client"] = client_val
+    if cargo_val and cargo_val != "Все грузы":
+        params["cargo"] = cargo_val
 
     try:
         resp = requests.get(f"{BASE_URL}/containers", params=params, timeout=HTTP_TIMEOUT)
@@ -302,6 +347,10 @@ def load_data():
             _raw_containers = resp.json()
             render_table(_raw_containers)
             update_stats()
+            if 'filter_client_combo' in globals():
+                filter_client_combo["values"] = ["Все клиенты"] + get_remembered_clients()
+            if 'filter_cargo_combo' in globals():
+                filter_cargo_combo["values"] = ["Все грузы"] + get_remembered_cargos()
         else:
             status_bar_label.config(text=f"Ошибка сервера: {resp.status_code}")
     except requests.exceptions.ConnectionError:
@@ -317,15 +366,15 @@ def render_table(containers):
     _row_id_map.clear()
 
     for idx, c in enumerate(containers):
-        days = c.get("days_in_transit", 0)
+        days = calculate_days_local(c.get("sent_date", ""), c.get("return_date"))
         status = c.get("status", "")
         dest = c.get("destination", "")
         has_returned = bool(c.get("return_date") and c.get("return_date") != "-")
 
         # Определение цветового тега
-        if status == "Задержан" or (dest == "Афганистан" and not has_returned and days > 30):
+        if (dest in ("Хайратон", "Афганистан") and not has_returned and days > 30):
             tag = "late"
-        elif status == "Доставлен" or status == "Возвращен":
+        elif status == "Порожний":
             tag = "done"
         elif idx % 2 == 1:
             tag = "even"
@@ -335,12 +384,13 @@ def render_table(containers):
         row_vals = (
             c.get("container_no", ""),
             c.get("client", "") or "-",
+            c.get("cargo_name", "") or "-",
             c.get("barge", "") or "-",
             c.get("destination", ""),
             c.get("status", ""),
             c.get("reason", "") or "-",
-            c.get("sent_date", ""),
-            c.get("return_date") or "-",
+            format_date_ru(c.get("sent_date", "")),
+            format_date_ru(c.get("return_date") or "-"),
             days,
             c.get("added_by") or "-"
         )
@@ -360,8 +410,9 @@ def update_stats():
         if resp.status_code == 200:
             st = resp.json()
             lbl_sent_today.config(text=f"Отправлено сегодня: {st.get('sent_today', 0)}")
-            lbl_slow_afg.config(text=f"Задерживаются в Афганистане: {st.get('afghanistan_delayed', 0)}")
-            lbl_in_transit.config(text=f"Всего в пути: {st.get('in_transit', 0)}")
+            lbl_hairatan.config(text=f"В Хайратоне: {st.get('hairatan_count', st.get('afghanistan_delayed', 0))}")
+            lbl_termez.config(text=f"В Термез-порту: {st.get('termez_count', 0)}")
+            lbl_status_kpi.config(text=f"Груженных: {st.get('loaded_count', 0)} | Порожних: {st.get('empty_count', 0)}")
     except Exception:
         pass
 
@@ -369,74 +420,98 @@ def update_stats():
 # ================== МОДАЛЬНОЕ ОКНО: ДАННЫЕ КОНТЕЙНЕРА ==================
 def open_container_dialog(container_data=None):
     """
-    Открывает модальное окно 'Данные контейнера' как на скриншоте.
-    Если container_data передан — режим редактирования.
-    Если None — режим добавления нового контейнера.
+    Открывает модальное окно 'Данные контейнера'.
+    Если container_data передан — режим редактирования (один контейнер).
+    Если None — режим добавления новых контейнеров (до 20 номеров).
     """
+    import re
     is_edit = container_data is not None
     container_id = container_data["id"] if is_edit else None
 
     dialog = tk.Toplevel(main_window)
-    dialog.title("Данные контейнера" if is_edit else "Добавить контейнер")
-    dialog.geometry("540x540")
+    dialog.title("Данные контейнера" if is_edit else "➕ Добавить контейнеры (до 20 шт)")
+    dialog.geometry("580x620")
     dialog.resizable(False, False)
     dialog.grab_set()
-
-    # Поля формы
-    fields = {}
 
     grid_frame = tk.Frame(dialog, padx=25, pady=15)
     grid_frame.pack(fill="both", expand=True)
 
     def add_row(row_idx, label_text, widget):
-        lbl = tk.Label(grid_frame, text=label_text + ":", font=("Segoe UI", 10), anchor="w")
-        lbl.grid(row=row_idx, column=0, sticky="w", pady=6, padx=(0, 15))
-        widget.grid(row=row_idx, column=1, sticky="ew", pady=6)
+        lbl = tk.Label(grid_frame, text=label_text + ":", font=("Segoe UI", 10, "bold" if "Номер" in label_text else "normal"), anchor="w")
+        lbl.grid(row=row_idx, column=0, sticky="nw" if "Номер" in label_text and not is_edit else "w", pady=5, padx=(0, 15))
+        widget.grid(row=row_idx, column=1, sticky="ew", pady=5)
         grid_frame.columnconfigure(1, weight=1)
 
-    # 1. Номер
-    entry_no = ttk.Entry(grid_frame, font=("Segoe UI", 10))
+    # 1. Номер / Номера (до 20 шт)
     if is_edit:
+        entry_no = ttk.Entry(grid_frame, font=("Segoe UI", 10))
         entry_no.insert(0, container_data.get("container_no", ""))
-    add_row(0, "Номер", entry_no)
+        add_row(0, "Номер контейнера *", entry_no)
+    else:
+        no_frame = tk.Frame(grid_frame)
+        text_no = tk.Text(no_frame, height=3, width=35, font=("Consolas", 10), wrap="word")
+        text_no.pack(fill="x", expand=True)
+        lbl_batch_cnt = tk.Label(no_frame, text="Распознано: 0 / 20 (через запятую или пробел)", font=("Segoe UI", 8), fg="#2563eb")
+        lbl_batch_cnt.pack(anchor="w", pady=(2, 0))
 
-    # 2. Грузополучатель
-    entry_client = ttk.Entry(grid_frame, font=("Segoe UI", 10))
+        def on_no_change(*_):
+            val = text_no.get("1.0", "end")
+            nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', val) if n.strip()]
+            seen = set()
+            unique_nums = [n for n in nums if not (n in seen or seen.add(n))]
+            cnt = len(unique_nums)
+            if cnt > 20:
+                lbl_batch_cnt.config(text=f"⚠️ Распознано: {cnt} / 20 (Превышен лимит!)", fg="#dc2626")
+            else:
+                lbl_batch_cnt.config(text=f"Распознано: {cnt} / 20 номеров", fg="#2563eb")
+
+        text_no.bind("<KeyRelease>", on_no_change)
+        add_row(0, "Номера (до 20 шт) *", no_frame)
+
+    # 2. Грузополучатель (с запоминанием)
+    combo_client = ttk.Combobox(grid_frame, values=get_remembered_clients(), font=("Segoe UI", 10))
     if is_edit and container_data.get("client") and container_data["client"] != "-":
-        entry_client.insert(0, container_data.get("client", ""))
-    add_row(1, "Грузополучатель", entry_client)
+        combo_client.set(container_data.get("client", ""))
+    add_row(1, "Грузополучатель", combo_client)
 
-    # 3. Баржа
+    # 3. Наименование груза (с запоминанием)
+    combo_cargo = ttk.Combobox(grid_frame, values=get_remembered_cargos(), font=("Segoe UI", 10))
+    if is_edit and container_data.get("cargo_name") and container_data["cargo_name"] != "-":
+        combo_cargo.set(container_data.get("cargo_name", ""))
+    add_row(2, "Наименование груза", combo_cargo)
+
+    # 4. Баржа
     combo_barge = ttk.Combobox(grid_frame, values=BARGES, font=("Segoe UI", 10), state="readonly")
     if is_edit and container_data.get("barge") and container_data["barge"] != "-":
         combo_barge.set(container_data.get("barge", ""))
     else:
         combo_barge.set(BARGES[0])
-    add_row(2, "Баржа", combo_barge)
+    add_row(3, "Баржа", combo_barge)
 
-    # 4. Направление (Казахстан, Афганистан, Узбекистан и др.)
+    # 5. Нахождение (Хайратон / Термез-порт)
     combo_dest = ttk.Combobox(grid_frame, values=DESTINATIONS, font=("Segoe UI", 10), state="readonly")
     if is_edit:
-        combo_dest.set(container_data.get("destination", DESTINATIONS[1]))
+        combo_dest.set(container_data.get("destination", DESTINATIONS[0]))
     else:
-        combo_dest.set("Афганистан")
-    add_row(3, "Направление", combo_dest)
+        combo_dest.set(DESTINATIONS[0])
+    add_row(4, "Нахождение", combo_dest)
 
-    # 5. Статус
+    # 6. Статус (Груженный / Порожний)
     combo_status = ttk.Combobox(grid_frame, values=STATUSES, font=("Segoe UI", 10), state="readonly")
     if is_edit:
         combo_status.set(container_data.get("status", STATUSES[0]))
     else:
-        combo_status.set("В пути")
-    add_row(4, "Статус", combo_status)
+        combo_status.set(STATUSES[0])
+    add_row(5, "Статус", combo_status)
 
-    # 6. Причина
+    # 7. Причина
     entry_reason = ttk.Entry(grid_frame, font=("Segoe UI", 10))
     if is_edit and container_data.get("reason") and container_data["reason"] != "-":
         entry_reason.insert(0, container_data.get("reason", ""))
-    add_row(5, "Причина", entry_reason)
+    add_row(6, "Причина / Прим.", entry_reason)
 
-    # 7. Дата отправки
+    # 8. Дата отправки
     if HAS_TKCALENDAR:
         date_sent = DateEntry(grid_frame, width=18, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
         if is_edit and container_data.get("sent_date"):
@@ -447,9 +522,9 @@ def open_container_dialog(container_data=None):
     else:
         date_sent = ttk.Entry(grid_frame, font=("Segoe UI", 10))
         date_sent.insert(0, container_data.get("sent_date", date.today().strftime("%Y-%m-%d")) if is_edit else date.today().strftime("%Y-%m-%d"))
-    add_row(6, "Дата отправки", date_sent)
+    add_row(7, "Дата отправки", date_sent)
 
-    # 8. Дата возврата
+    # 9. Дата возврата
     ret_frame = tk.Frame(grid_frame)
     if HAS_TKCALENDAR:
         date_ret = DateEntry(ret_frame, width=14, date_pattern="yyyy-mm-dd", font=("Segoe UI", 10))
@@ -470,58 +545,119 @@ def open_container_dialog(container_data=None):
     def clear_ret_date():
         date_ret.delete(0, "end")
     ttk.Button(ret_frame, text="✖ Очистить", width=10, command=clear_ret_date).pack(side="left", padx=(5, 0))
-    add_row(7, "Дата возврата", ret_frame)
+    add_row(8, "Дата возврата", ret_frame)
 
-    # 9. Инфо: Дней в пути & Добавил
+    # Инфо: Дней в пути & Добавил
+    cur_days = calculate_days_local(
+        container_data.get("sent_date", date.today().strftime("%Y-%m-%d")) if is_edit else date.today().strftime("%Y-%m-%d"),
+        container_data.get("return_date") if is_edit else None
+    )
     lbl_info_transit = tk.Label(
         grid_frame,
-        text=f"Дней в пути: {container_data.get('days_in_transit', 0) if is_edit else 0} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}",
+        text=f"Дней в пути: {cur_days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}",
         font=("Segoe UI", 9, "italic"), fg="#475569"
     )
-    lbl_info_transit.grid(row=8, column=0, columnspan=2, pady=(10, 5), sticky="w")
+    lbl_info_transit.grid(row=9, column=0, columnspan=2, pady=(10, 5), sticky="w")
+
+    def update_transit_label(*_):
+        s = date_sent.get().strip()
+        r = date_ret.get().strip()
+        days = calculate_days_local(s, r)
+        lbl_info_transit.config(text=f"Дней в пути: {days} | Добавил: {container_data.get('added_by', current_user) if is_edit else current_user}")
+
+    date_sent.bind("<KeyRelease>", update_transit_label)
+    date_ret.bind("<KeyRelease>", update_transit_label)
 
     # ================== КНОПКИ ДЕЙСТВИЙ ==================
     btn_panel = tk.Frame(dialog, padx=25, pady=15)
     btn_panel.pack(fill="x", side="bottom")
 
     def save_action():
-        c_no = entry_no.get().strip().upper()
-        if not c_no:
-            messagebox.showwarning("Внимание", "Укажите номер контейнера!", parent=dialog)
-            return
-
+        client_val = combo_client.get().strip()
+        cargo_val = combo_cargo.get().strip()
+        barge_val = combo_barge.get().strip()
+        dest_val = combo_dest.get().strip()
+        status_val = combo_status.get().strip()
+        reason_val = entry_reason.get().strip()
         s_date = date_sent.get().strip()
         r_date = date_ret.get().strip()
         if not r_date or r_date == "-":
             r_date = None
 
-        payload = {
-            "container_no": c_no,
-            "client": entry_client.get().strip(),
-            "barge": combo_barge.get().strip(),
-            "destination": combo_dest.get().strip(),
-            "status": combo_status.get().strip(),
-            "reason": entry_reason.get().strip(),
-            "sent_date": s_date,
-            "return_date": r_date
-        }
+        if client_val:
+            remember_client(client_val)
+        if cargo_val:
+            remember_cargo(cargo_val)
 
-        try:
-            if is_edit:
-                payload["changed_by"] = current_user
+        if is_edit:
+            c_no = entry_no.get().strip().upper()
+            if not c_no:
+                messagebox.showwarning("Внимание", "Укажите номер контейнера!", parent=dialog)
+                return
+
+            payload = {
+                "container_no": c_no,
+                "client": client_val,
+                "cargo_name": cargo_val,
+                "barge": barge_val,
+                "destination": dest_val,
+                "status": status_val,
+                "reason": reason_val,
+                "sent_date": s_date,
+                "return_date": r_date,
+                "changed_by": current_user
+            }
+
+            try:
                 res = requests.put(f"{BASE_URL}/containers/{container_id}", json=payload, timeout=HTTP_TIMEOUT)
-            else:
-                payload["added_by"] = current_user
-                res = requests.post(f"{BASE_URL}/containers", json=payload, timeout=HTTP_TIMEOUT)
+                if res.status_code == 200:
+                    messagebox.showinfo("Успешно", "Данные успешно сохранены!", parent=dialog)
+                    dialog.destroy()
+                    load_data()
+                else:
+                    messagebox.showerror("Ошибка", f"Не удалось сохранить: {res.text}", parent=dialog)
+            except Exception as ex:
+                messagebox.showerror("Ошибка сети", str(ex), parent=dialog)
+        else:
+            raw_val = text_no.get("1.0", "end")
+            nums = [n.strip().upper() for n in re.split(r'[\r\n,;\s]+', raw_val) if n.strip()]
+            seen = set()
+            numbers = []
+            for n in nums:
+                if n not in seen:
+                    seen.add(n)
+                    numbers.append(n)
 
-            if res.status_code in (200, 201):
-                messagebox.showinfo("Успешно", "Данные успешно сохранены!", parent=dialog)
-                dialog.destroy()
-                load_data()
-            else:
-                messagebox.showerror("Ошибка", f"Не удалось сохранить: {res.text}", parent=dialog)
-        except Exception as ex:
-            messagebox.showerror("Ошибка сети", str(ex), parent=dialog)
+            if not numbers:
+                messagebox.showwarning("Внимание", "Укажите хотя бы один номер контейнера!", parent=dialog)
+                return
+            if len(numbers) > 20:
+                messagebox.showwarning("Лимит", f"Вы указали {len(numbers)} номеров. Максимум допускается 20 номеров за один раз!", parent=dialog)
+                return
+
+            payload = {
+                "container_numbers": numbers,
+                "client": client_val,
+                "cargo_name": cargo_val,
+                "barge": barge_val,
+                "destination": dest_val,
+                "status": status_val,
+                "reason": reason_val,
+                "sent_date": s_date,
+                "return_date": r_date,
+                "added_by": current_user
+            }
+
+            try:
+                res = requests.post(f"{BASE_URL}/containers/batch", json=payload, timeout=HTTP_TIMEOUT)
+                if res.status_code in (200, 201):
+                    messagebox.showinfo("Успешно", f"Успешно добавлено контейнеров: {len(numbers)} шт!", parent=dialog)
+                    dialog.destroy()
+                    load_data()
+                else:
+                    messagebox.showerror("Ошибка", f"Не удалось сохранить: {res.text}", parent=dialog)
+            except Exception as ex:
+                messagebox.showerror("Ошибка сети", str(ex), parent=dialog)
 
     def delete_action():
         if not is_edit:
@@ -596,7 +732,7 @@ def export_to_excel():
         return
 
     headers = [
-        "Номер", "Грузополучатель", "Баржа", "Направление", "Статус",
+        "Номер", "Грузополучатель", "Наименование груза", "Баржа", "Нахождение", "Статус",
         "Причина", "Дата отправки", "Дата возврата", "Дней в пути", "Добавлен пользователем"
     ]
     rows = []
@@ -659,21 +795,17 @@ def show_chart():
     counts["date"] = pd.to_datetime(counts["date"])
 
     color_map = {
-        "Афганистан":  "#ef4444",
-        "Узбекистан":  "#3b82f6",
-        "Таджикистан": "#f59e0b",
-        "Казахстан":   "#10b981",
-        "Туркменистан":"#8b5cf6",
-        "Кыргызстан":  "#06b6d4",
-        "Россия":      "#64748b",
-        "Китай":       "#ec4899"
+        "Хайратон":    "#ef4444",
+        "Термез-порт": "#3b82f6",
+        "Афганистан":  "#f59e0b",
+        "Узбекистан":  "#10b981"
     }
 
     fig = px.bar(
         counts, x="date", y="count", color="destination",
         color_discrete_map=color_map, text="count",
-        labels={"date": "Дата", "count": "Количество", "destination": "Направление"},
-        title="Динамика отправок контейнеров по направлениям",
+        labels={"date": "Дата", "count": "Количество", "destination": "Нахождение"},
+        title="Динамика отправок контейнеров по нахождениям (Хайратон / Термез-порт)",
         barmode="stack"
     )
     fig.update_layout(
@@ -701,8 +833,8 @@ def open_report_window():
         return
 
     rw = tk.Toplevel(main_window)
-    rw.title("📋 Отчет по дислокации (Афганистан / Узбекистан)")
-    rw.geometry("1100x650")
+    rw.title("📋 Отчет по нахождениям (Хайратон / Термез-порт)")
+    rw.geometry("1180x660")
     rw.grab_set()
 
     summary = rep.get("summary", {})
@@ -711,66 +843,84 @@ def open_report_window():
 
     tk.Label(
         top,
-        text=f"Всего в реестре: {summary.get('total_registry', 0)}   |   Сейчас в Афганистане: {summary.get('afghanistan_now_count', 0)}   |   В Узбекистане (на базе): {summary.get('uzbekistan_now_count', 0)}",
+        text=f"Всего в реестре: {summary.get('total_registry', 0)}   |   В Хайратоне: {summary.get('hairatan_now_count', 0)}   |   В Термез-порту: {summary.get('termez_now_count', 0)}",
         font=("Segoe UI", 11, "bold"), fg="#ffffff", bg="#1e40af"
     ).pack(side="left")
 
     body = tk.Frame(rw, padx=10, pady=10)
     body.pack(fill="both", expand=True)
 
-    # Таблица Афганистан
-    f_afg = ttk.LabelFrame(body, text=f"Задерживаются / в пути в Афганистане ({summary.get('afghanistan_now_count', 0)})")
+    # Таблица Хайратон
+    f_afg = ttk.LabelFrame(body, text=f"В Хайратоне ({summary.get('hairatan_now_count', 0)})")
     f_afg.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
     t_afg = ttk.Treeview(
         f_afg,
-        columns=("no", "client", "barge", "sent", "days", "reason"),
+        columns=("no", "client", "cargo", "barge", "sent", "days", "status"),
         show="headings"
     )
     for col, txt, w in [
-        ("no", "Номер", 120), ("client", "Грузополучатель", 140),
-        ("barge", "Баржа", 100), ("sent", "Отправлен", 100),
-        ("days", "Дней", 70), ("reason", "Причина", 180)
+        ("no", "Номер", 110), ("client", "Грузополучатель", 120),
+        ("cargo", "Груз", 110), ("barge", "Баржа", 80),
+        ("sent", "Отправлен", 90), ("days", "Дней", 60), ("status", "Статус", 90)
     ]:
         t_afg.heading(col, text=txt)
-        t_afg.column(col, width=w, anchor="center" if col != "reason" else "w")
+        t_afg.column(col, width=w, anchor="center" if col not in ("client", "cargo") else "w")
 
     sb_afg = ttk.Scrollbar(f_afg, orient="vertical", command=t_afg.yview)
     t_afg.configure(yscrollcommand=sb_afg.set)
     t_afg.pack(side="left", fill="both", expand=True)
     sb_afg.pack(side="right", fill="y")
 
-    for item in rep.get("afghanistan_now", []):
+    for item in rep.get("hairatan_now", []):
         t_afg.insert("", "end", values=(
             item.get("container_no", ""),
             item.get("client", "") or "-",
+            item.get("cargo_name", "") or "-",
             item.get("barge", "") or "-",
             item.get("sent_date", ""),
-            item.get("days_in_afghanistan", 0),
-            item.get("reason", "") or "-"
+            item.get("days_in_transit", item.get("days_in_afghanistan", 0)),
+            item.get("status", "") or "-"
         ))
 
-    # Таблица Узбекистан
-    f_uz = ttk.LabelFrame(body, text=f"В Узбекистане / на месте ({summary.get('uzbekistan_now_count', 0)})")
+    # Таблица Термез-порт
+    f_uz = ttk.LabelFrame(body, text=f"В Термез-порту ({summary.get('termez_now_count', 0)})")
     f_uz.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
-    t_uz = ttk.Treeview(f_uz, columns=("no",), show="headings")
-    t_uz.heading("no", text="Номер контейнера в реестре")
-    t_uz.column("no", width=220, anchor="center")
+    t_uz = ttk.Treeview(
+        f_uz,
+        columns=("no", "client", "cargo", "barge", "sent", "days", "status"),
+        show="headings"
+    )
+    for col, txt, w in [
+        ("no", "Номер", 110), ("client", "Грузополучатель", 120),
+        ("cargo", "Груз", 110), ("barge", "Баржа", 80),
+        ("sent", "Отправлен", 90), ("days", "Дней", 60), ("status", "Статус", 90)
+    ]:
+        t_uz.heading(col, text=txt)
+        t_uz.column(col, width=w, anchor="center" if col not in ("client", "cargo") else "w")
 
     sb_uz = ttk.Scrollbar(f_uz, orient="vertical", command=t_uz.yview)
     t_uz.configure(yscrollcommand=sb_uz.set)
     t_uz.pack(side="left", fill="both", expand=True)
     sb_uz.pack(side="right", fill="y")
 
-    for c_no in rep.get("uzbekistan_now", []):
-        t_uz.insert("", "end", values=(c_no,))
+    for item in rep.get("termez_now", []):
+        t_uz.insert("", "end", values=(
+            item.get("container_no", ""),
+            item.get("client", "") or "-",
+            item.get("cargo_name", "") or "-",
+            item.get("barge", "") or "-",
+            item.get("sent_date", ""),
+            item.get("days_in_transit", 0),
+            item.get("status", "") or "-"
+        ))
 
 
 # ================== ГЛАВНОЕ ОКНО ПРИЛОЖЕНИЯ ==================
 def start_main_application():
-    global main_window, tree, lbl_sent_today, lbl_slow_afg, lbl_in_transit
-    global search_entry, filter_dest_combo, filter_status_combo, status_bar_label
+    global main_window, tree, lbl_sent_today, lbl_hairatan, lbl_termez, lbl_status_kpi
+    global search_entry, filter_dest_combo, filter_status_combo, filter_client_combo, filter_cargo_combo, status_bar_label
 
     main_window = tk.Tk()
     main_window.title("Мониторинг контейнеров PRO")
@@ -848,59 +998,82 @@ def start_main_application():
         kpi_frame, text="Отправлено сегодня: 0",
         font=("Segoe UI", 10, "bold"), fg="#1e40af", bg="#eff6ff"
     )
-    lbl_sent_today.pack(side="left", padx=20, pady=8)
+    lbl_sent_today.pack(side="left", padx=15, pady=8)
 
     tk.Label(kpi_frame, text="|", fg="#93c5fd", bg="#eff6ff").pack(side="left")
 
-    lbl_slow_afg = tk.Label(
-        kpi_frame, text="Задерживаются в Афганистане: 0",
+    lbl_hairatan = tk.Label(
+        kpi_frame, text="В Хайратоне: 0",
         font=("Segoe UI", 10, "bold"), fg="#dc2626", bg="#eff6ff"
     )
-    lbl_slow_afg.pack(side="left", padx=20, pady=8)
+    lbl_hairatan.pack(side="left", padx=15, pady=8)
 
     tk.Label(kpi_frame, text="|", fg="#93c5fd", bg="#eff6ff").pack(side="left")
 
-    lbl_in_transit = tk.Label(
-        kpi_frame, text="Всего в пути: 0",
-        font=("Segoe UI", 10, "bold"), fg="#0369a1", bg="#eff6ff"
+    lbl_termez = tk.Label(
+        kpi_frame, text="В Термез-порту: 0",
+        font=("Segoe UI", 10, "bold"), fg="#0284c7", bg="#eff6ff"
     )
-    lbl_in_transit.pack(side="left", padx=20, pady=8)
+    lbl_termez.pack(side="left", padx=15, pady=8)
+
+    tk.Label(kpi_frame, text="|", fg="#93c5fd", bg="#eff6ff").pack(side="left")
+
+    lbl_status_kpi = tk.Label(
+        kpi_frame, text="Груженных: 0 | Порожних: 0",
+        font=("Segoe UI", 10, "bold"), fg="#059669", bg="#eff6ff"
+    )
+    lbl_status_kpi.pack(side="left", padx=15, pady=8)
 
     # 4. Панель быстрого поиска и фильтров
-    filter_frame = tk.Frame(main_window, bg="#f8fafc", padx=15, pady=8)
+    filter_frame = tk.Frame(main_window, bg="#f8fafc", padx=10, pady=8)
     filter_frame.pack(fill="x")
 
-    tk.Label(filter_frame, text="🔍 Поиск:", font=("Segoe UI", 9, "bold"), bg="#f8fafc").pack(side="left", padx=(0, 5))
-    search_entry = ttk.Entry(filter_frame, width=24, font=("Segoe UI", 9))
-    search_entry.pack(side="left", padx=(0, 15))
+    tk.Label(filter_frame, text="🔍 Поиск:", font=("Segoe UI", 9, "bold"), bg="#f8fafc").pack(side="left", padx=(0, 4))
+    search_entry = ttk.Entry(filter_frame, width=18, font=("Segoe UI", 9))
+    search_entry.pack(side="left", padx=(0, 10))
     search_entry.bind("<KeyRelease>", lambda _: load_data())
 
-    tk.Label(filter_frame, text="Направление:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 5))
-    filter_dest_combo = ttk.Combobox(filter_frame, values=["Все направления"] + DESTINATIONS, state="readonly", width=16)
-    filter_dest_combo.set("Все направления")
-    filter_dest_combo.pack(side="left", padx=(0, 15))
+    tk.Label(filter_frame, text="Нахождение:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 4))
+    filter_dest_combo = ttk.Combobox(filter_frame, values=["Все нахождения"] + DESTINATIONS, state="readonly", width=14)
+    filter_dest_combo.set("Все нахождения")
+    filter_dest_combo.pack(side="left", padx=(0, 10))
     filter_dest_combo.bind("<<ComboboxSelected>>", lambda _: load_data())
 
-    tk.Label(filter_frame, text="Статус:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 5))
-    filter_status_combo = ttk.Combobox(filter_frame, values=["Все статусы"] + STATUSES, state="readonly", width=14)
+    tk.Label(filter_frame, text="Статус:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 4))
+    filter_status_combo = ttk.Combobox(filter_frame, values=["Все статусы"] + STATUSES, state="readonly", width=12)
     filter_status_combo.set("Все статусы")
-    filter_status_combo.pack(side="left", padx=(0, 15))
+    filter_status_combo.pack(side="left", padx=(0, 10))
     filter_status_combo.bind("<<ComboboxSelected>>", lambda _: load_data())
+
+    tk.Label(filter_frame, text="Клиент:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 4))
+    filter_client_combo = ttk.Combobox(filter_frame, values=["Все клиенты"] + get_remembered_clients(), state="readonly", width=14)
+    filter_client_combo.set("Все клиенты")
+    filter_client_combo.pack(side="left", padx=(0, 10))
+    filter_client_combo.bind("<<ComboboxSelected>>", lambda _: load_data())
+
+    tk.Label(filter_frame, text="Груз:", font=("Segoe UI", 9), bg="#f8fafc").pack(side="left", padx=(0, 4))
+    filter_cargo_combo = ttk.Combobox(filter_frame, values=["Все грузы"] + get_remembered_cargos(), state="readonly", width=14)
+    filter_cargo_combo.set("Все грузы")
+    filter_cargo_combo.pack(side="left", padx=(0, 10))
+    filter_cargo_combo.bind("<<ComboboxSelected>>", lambda _: load_data())
 
     def reset_filters():
         search_entry.delete(0, "end")
-        filter_dest_combo.set("Все направления")
+        filter_dest_combo.set("Все нахождения")
         filter_status_combo.set("Все статусы")
+        filter_client_combo.set("Все клиенты")
+        filter_cargo_combo.set("Все грузы")
         load_data()
 
-    ttk.Button(filter_frame, text="Сбросить фильтры", command=reset_filters).pack(side="left")
+    ttk.Button(filter_frame, text="✕ Сбросить", command=reset_filters).pack(side="left")
 
     # 5. Основная таблица (Treeview)
     columns = (
         "Номер",
         "Грузополучатель",
+        "Наименование груза",
         "Баржа",
-        "Направление",
+        "Нахождение",
         "Статус",
         "Причина",
         "Дата отправки",
@@ -910,16 +1083,17 @@ def start_main_application():
     )
 
     col_widths = {
-        "Номер": 130,
-        "Грузополучатель": 160,
-        "Баржа": 120,
-        "Направление": 120,
-        "Статус": 110,
-        "Причина": 220,
-        "Дата отправки": 110,
-        "Дата возврата": 110,
+        "Номер": 120,
+        "Грузополучатель": 140,
+        "Наименование груза": 140,
+        "Баржа": 100,
+        "Нахождение": 110,
+        "Статус": 100,
+        "Причина": 180,
+        "Дата отправки": 100,
+        "Дата возврата": 100,
         "Дней в пути": 90,
-        "Добавлен пользователем": 160
+        "Добавлен пользователем": 140
     }
 
     tbl_container = tk.Frame(main_window, bg="#cbd5e1")
@@ -938,7 +1112,7 @@ def start_main_application():
         tree.column(
             col,
             width=col_widths.get(col, 120),
-            anchor="w" if col in ("Причина", "Грузополучатель") else "center"
+            anchor="w" if col in ("Причина", "Грузополучатель", "Наименование груза") else "center"
         )
 
     # Цветовая подсветка строк
