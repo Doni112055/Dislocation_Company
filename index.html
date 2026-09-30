@@ -1431,16 +1431,31 @@
             closeModal('containerModal');
             fetchContainers();
           } else {
-            // Если пакетный эндпоинт вернул ошибку, создаем через обычный POST в цикле
+            let lastErr = '';
+            let anySuccess = false;
             for (const c_no of numbers) {
-              await fetch(`${api}/containers`, {
+              const r = await fetch(`${api}/containers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ container_no: c_no, ...basePayload })
               });
+              if (r.ok) {
+                anySuccess = true;
+              } else {
+                try {
+                  const errJson = await r.json();
+                  lastErr = errJson.detail || JSON.stringify(errJson);
+                } catch (_) {
+                  lastErr = await r.text();
+                }
+              }
             }
-            closeModal('containerModal');
-            fetchContainers();
+            if (anySuccess) {
+              closeModal('containerModal');
+              fetchContainers();
+            } else {
+              alert('Ошибка сохранения: ' + (lastErr || (await res.text())));
+            }
           }
         } catch (e) {
           alert('Ошибка связи: ' + e.message);

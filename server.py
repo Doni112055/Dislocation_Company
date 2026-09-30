@@ -498,7 +498,7 @@ def create_container(payload: ContainerIn):
                 container_no, client, cargo_name, barge, destination, status, reason,
                 sent_date, return_date, country, added_by, changed_by, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             c_no,
             (payload.client or "").strip(),
@@ -510,6 +510,7 @@ def create_container(payload: ContainerIn):
             payload.sent_date.strip(),
             payload.return_date.strip() if payload.return_date and payload.return_date.strip() != "-" else None,
             (payload.country or "").strip(),
+            (payload.added_by or "").strip(),
             (payload.added_by or "").strip(),
             ts,
             ts
@@ -554,7 +555,7 @@ def create_containers_batch(payload: BatchContainersIn):
                 container_no, client, cargo_name, barge, destination, status, reason,
                 sent_date, return_date, country, added_by, changed_by, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             c_no,
             (payload.client or "").strip(),
@@ -566,6 +567,7 @@ def create_containers_batch(payload: BatchContainersIn):
             payload.sent_date.strip(),
             payload.return_date.strip() if payload.return_date and payload.return_date.strip() != "-" else None,
             (payload.country or "").strip(),
+            (payload.added_by or "").strip(),
             (payload.added_by or "").strip(),
             ts,
             ts
