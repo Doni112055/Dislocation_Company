@@ -9,6 +9,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script>
+    (function() {
+      try {
+        const t = localStorage.getItem('dislocation_theme');
+        if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark-mode');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <style>
     :root {
       --primary: #1e40af;
@@ -28,8 +38,26 @@
       --info-bg: #e0f2fe;
     }
 
+    html.dark-mode, body.dark-mode {
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --bg: #0b0f19;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --danger: #f87171;
+      --danger-bg: #450a0a;
+      --warning: #fbbf24;
+      --warning-bg: #451a03;
+      --success: #4ade80;
+      --success-bg: #052e16;
+      --info: #38bdf8;
+      --info-bg: #082f49;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background-color 0.2s ease, color 0.2s ease; }
 
     /* Шапка */
     header {
@@ -160,6 +188,30 @@
     tbody tr.late td {
       border: 1px solid #000000 !important;
     }
+    tbody tr.duplicate-row {
+      background-color: #fee2e2 !important;
+    }
+    tbody tr.duplicate-row td {
+      background-color: #fee2e2 !important;
+      border: 1px solid #dc2626 !important;
+      color: #991b1b !important;
+    }
+    tbody tr.duplicate-row:hover td {
+      background-color: #fecaca !important;
+    }
+    .badge-duplicate {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #f87171;
+      margin-left: 6px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
     tbody tr.done {
       background-color: #f0fdf4;
       color: #166534;
@@ -244,6 +296,196 @@
       border-bottom-right-radius: 10px;
     }
     .btn-group-left { display: flex; gap: 8px; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #dashboardModal, #dashboardModal * { visibility: visible; }
+      #dashboardModal { position: absolute; left: 0; top: 0; width: 100%; display: block !important; background: white !important; }
+      #dashboardModal .modal-card { max-width: 100% !important; box-shadow: none !important; border: none !important; }
+      #dashboardModal .modal-header .btn, #dashboardModal .modal-header .close-btn, #dashboardModal .modal-footer { display: none !important; }
+    }
+
+    /* ================= СТИЛИ ТЕМНОЙ ТЕМЫ (ПОЛНАЯ ПОДДЕРЖКА) ================= */
+    .dark-mode, html.dark-mode body {
+      background-color: #0b0f19 !important;
+      color: #f8fafc !important;
+    }
+    .dark-mode header {
+      background: #0f172a !important;
+      border-bottom: 1px solid #1e293b !important;
+    }
+    .dark-mode .toolbar {
+      background: #1e293b !important;
+      border-bottom: 1px solid #334155 !important;
+    }
+    .dark-mode .kpi-bar {
+      background: #111827 !important;
+      border-bottom: 1px solid #1f2937 !important;
+    }
+    .dark-mode .kpi-item.blue { color: #93c5fd !important; }
+    .dark-mode .kpi-item.red { color: #f87171 !important; }
+    .dark-mode .kpi-item.sky { color: #38bdf8 !important; }
+    .dark-mode .divider { color: #334155 !important; }
+    .dark-mode .filter-bar {
+      background: #1e293b !important;
+      border-bottom: 1px solid #334155 !important;
+    }
+    .dark-mode .filter-group label {
+      color: #cbd5e1 !important;
+    }
+    .dark-mode .input-control,
+    .dark-mode .select-control {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode .input-control::placeholder {
+      color: #64748b !important;
+    }
+    .dark-mode .btn-secondary {
+      background: #334155 !important;
+      color: #f1f5f9 !important;
+      border-color: #475569 !important;
+    }
+    .dark-mode .btn-secondary:hover {
+      background: #475569 !important;
+      border-color: #64748b !important;
+    }
+    .dark-mode .content {
+      background-color: #0b0f19 !important;
+    }
+    .dark-mode .table-container {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode table {
+      border: 1.5px solid #334155 !important;
+      background: #1e293b !important;
+    }
+    .dark-mode thead {
+      background: #0f172a !important;
+    }
+    .dark-mode th {
+      background: #0f172a !important;
+      color: #93c5fd !important;
+      border: 1px solid #334155 !important;
+    }
+    .dark-mode tbody tr {
+      background: #1e293b !important;
+    }
+    .dark-mode td {
+      border: 1px solid #334155 !important;
+      color: #f1f5f9 !important;
+      background: #1e293b !important;
+    }
+    .dark-mode td strong {
+      color: #ffffff !important;
+    }
+    .dark-mode td span[style*="color:#1e40af"] {
+      color: #93c5fd !important;
+    }
+    .dark-mode td span[style*="color:#0d9488"] {
+      color: #2dd4bf !important;
+    }
+    .dark-mode td span[style*="color:#b91c1c"] {
+      color: #f87171 !important;
+    }
+    .dark-mode .badge[style*="background:#dbeafe"] {
+      background: #1e3a8a !important;
+      color: #bfdbfe !important;
+      border-color: #3b82f6 !important;
+    }
+    .dark-mode .badge[style*="background:#f1f5f9"] {
+      background: #334155 !important;
+      color: #cbd5e1 !important;
+      border-color: #475569 !important;
+    }
+    .dark-mode tbody tr:hover td {
+      background: #334155 !important;
+    }
+    .dark-mode tbody tr.late td {
+      background-color: #450a0a !important;
+      color: #fca5a5 !important;
+      border-color: #7f1d1d !important;
+    }
+    .dark-mode tbody tr.duplicate-row td {
+      background-color: #450a0a !important;
+      color: #fca5a5 !important;
+      border-color: #b91c1c !important;
+    }
+    .dark-mode tbody tr.duplicate-row:hover td {
+      background-color: #581c1c !important;
+    }
+    .dark-mode .badge-duplicate {
+      background: #7f1d1d !important;
+      color: #fca5a5 !important;
+      border-color: #b91c1c !important;
+    }
+    .dark-mode tbody tr.done td {
+      background-color: #052e16 !important;
+      color: #86efac !important;
+      border-color: #14532d !important;
+    }
+    .dark-mode footer {
+      background: #1e293b !important;
+      border-top-color: #334155 !important;
+      color: #94a3b8 !important;
+    }
+    .dark-mode .modal-card {
+      background: #1e293b !important;
+      color: #f1f5f9 !important;
+      border: 1px solid #334155 !important;
+    }
+    .dark-mode .modal-header {
+      background: #0f172a !important;
+      border-bottom-color: #334155 !important;
+    }
+    .dark-mode .modal-header h3 {
+      color: #f8fafc !important;
+    }
+    .dark-mode .modal-footer {
+      background: #0f172a !important;
+      border-top-color: #334155 !important;
+    }
+    .dark-mode .form-group label {
+      color: #cbd5e1 !important;
+    }
+    .dark-mode #modalInfoLine {
+      color: #94a3b8 !important;
+    }
+    .dark-mode #dictClientsList,
+    .dark-mode #dictCargosList {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode #dashboardModal #dashboardPrintArea {
+      background: #0b0f19 !important;
+    }
+    .dark-mode #dashboardModal div[style*="background: white"],
+    .dark-mode #dashboardModal div[style*="background: #ffffff"] {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode #dashboardModal h4 {
+      color: #f8fafc !important;
+    }
+    .dark-mode #dashboardModal #dashKpiTotal {
+      color: #f8fafc !important;
+    }
+    .dark-mode #dashboardModal table thead tr {
+      background: #0f172a !important;
+      color: #94a3b8 !important;
+    }
+    .dark-mode #dashboardModal table th,
+    .dark-mode #dashboardModal table td {
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+      background: #1e293b !important;
+    }
+    .dark-mode #dashboardModal .modal-footer {
+      background: #1e293b !important;
+      border-top-color: #334155 !important;
+    }
   </style>
 </head>
 <body>
@@ -255,6 +497,9 @@
       <span>Мониторинг контейнеров PRO</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn" id="themeToggleBtn" onclick="toggleTheme()" title="Переключить тему (Светлая / Темная)" style="padding: 5px 12px; font-size: 0.82rem; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.35); border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+        <span id="themeToggleIcon">🌙</span> <span id="themeToggleText">Ночной режим</span>
+      </button>
       <div class="user-badge" id="userName">
         <span>Проверка сервера...</span>
       </div>
@@ -273,7 +518,7 @@
     <button class="btn btn-secondary" onclick="openDictionaryModal()">🗂 Память / Очистить</button>
     <button class="btn btn-secondary" onclick="fetchContainers()">🔄 Обновить</button>
     <button class="btn btn-secondary" onclick="exportToExcel()">📊 Экспорт в Excel</button>
-    <button class="btn btn-secondary" onclick="openChartModal()">📈 Интерактивный график</button>
+    <button class="btn" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color: white; border: none; font-weight: 600; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);" onclick="openDashboardModal()">📊 Аналитический дашборд</button>
     <button class="btn btn-secondary" onclick="openReportModal()">📋 Отчет по дислокации</button>
   </div>
 
@@ -319,6 +564,7 @@
         <option value="Все">Все статусы</option>
         <option value="Груженный">Груженный</option>
         <option value="Порожний">Порожний</option>
+        <option value="Дубликаты" style="color:#b91c1c; font-weight:700;">⚠️ Только дубликаты</option>
       </select>
     </div>
     <div class="filter-group">
@@ -426,7 +672,7 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="f_dest">Нахождение *</label>
+            <label for="f_dest">Куда едет груз / Нахождение *</label>
             <select id="f_dest" class="select-control" style="width:100%">
               <option value="Хайратон" selected>Хайратон</option>
               <option value="Термез-порт">Термез-порт</option>
@@ -474,16 +720,181 @@
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО: ГРАФИК -->
-  <div class="modal-backdrop" id="chartModal">
-    <div class="modal-card" style="max-width: 800px;">
-      <div class="modal-header">
-        <h3>📈 Статистика отправок по направлениям</h3>
-        <button class="close-btn" onclick="closeModal('chartModal')">✕</button>
+  <!-- МОДАЛЬНОЕ ОКНО: АНАЛИТИЧЕСКИЙ ДАШБОРД -->
+  <div class="modal-backdrop" id="dashboardModal">
+    <div class="modal-card" style="max-width: 1140px; width: 95%; max-height: 92vh; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+      
+      <!-- Шапка дашборда -->
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); color: white; padding: 16px 24px; border-bottom: none;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <h3 style="color: white; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0;">
+            <span>📊</span> <span>Аналитический дашборд дислокации</span>
+          </h3>
+          <span id="dashUpdatedTime" style="font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 12px; font-weight: 500;">
+            Обновлено: только что
+          </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Переключатель фильтрации -->
+          <div style="display: inline-flex; background: rgba(0,0,0,0.25); padding: 3px; border-radius: 8px;">
+            <button type="button" id="dashFilterAll" onclick="setDashboardFilter('all')" style="border: none; background: #ffffff; color: #1e3a8a; font-weight: 600; font-size: 0.82rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+              Все записи
+            </button>
+            <button type="button" id="dashFilterTransit" onclick="setDashboardFilter('in_transit')" style="border: none; background: transparent; color: #e2e8f0; font-weight: 600; font-size: 0.82rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+              🚚 Только в пути
+            </button>
+          </div>
+          <button class="btn" onclick="printDashboard()" style="padding: 5px 12px; font-size: 0.82rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);">
+            🖨 Печать
+          </button>
+          <button class="close-btn" style="color: white; font-size: 1.5rem;" onclick="closeModal('dashboardModal')">&times;</button>
+        </div>
       </div>
-      <div class="modal-body">
-        <canvas id="chartCanvas" height="150"></canvas>
+
+      <!-- Тело дашборда со скроллом -->
+      <div class="modal-body" id="dashboardPrintArea" style="padding: 20px 24px; background: #f8fafc; overflow-y: auto; flex: 1;">
+        
+        <!-- 1. Сетка ключевых показателей (KPI Cards) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          
+          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #3b82f6;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Всего вагонов</div>
+            <div id="dashKpiTotal" style="font-size: 1.7rem; font-weight: 700; color: #1e293b; margin: 4px 0;">0</div>
+            <div style="font-size: 0.78rem; color: #64748b;">в текущей выборке</div>
+          </div>
+
+          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #0284c7;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Сейчас в пути</div>
+            <div id="dashKpiInTransit" style="font-size: 1.7rem; font-weight: 700; color: #0284c7; margin: 4px 0;">0</div>
+            <div id="dashKpiInTransitPct" style="font-size: 0.78rem; color: #0284c7; font-weight: 600;">0% от общего</div>
+          </div>
+
+          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #dc2626;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">В Хайратоне</div>
+            <div id="dashKpiHairatan" style="font-size: 1.7rem; font-weight: 700; color: #dc2626; margin: 4px 0;">0</div>
+            <div style="font-size: 0.78rem; color: #64748b;">Афганистан</div>
+          </div>
+
+          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #16a34a;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">В Термез-порту</div>
+            <div id="dashKpiTermez" style="font-size: 1.7rem; font-weight: 700; color: #16a34a; margin: 4px 0;">0</div>
+            <div style="font-size: 0.78rem; color: #64748b;">Узбекистан</div>
+          </div>
+
+          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #8b5cf6;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Средний срок</div>
+            <div id="dashKpiAvgDays" style="font-size: 1.7rem; font-weight: 700; color: #8b5cf6; margin: 4px 0;">0 дн.</div>
+            <div style="font-size: 0.78rem; color: #64748b;">время в пути</div>
+          </div>
+
+          <div style="background: #fef2f2; border-radius: 10px; padding: 14px 16px; border: 1px solid #fecaca; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #ef4444;">
+            <div style="font-size: 0.78rem; font-weight: 600; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">Задержки (>15 дн.)</div>
+            <div id="dashKpiLate" style="font-size: 1.7rem; font-weight: 700; color: #b91c1c; margin: 4px 0;">0</div>
+            <div style="font-size: 0.78rem; color: #991b1b; font-weight: 500;">требуют внимания</div>
+          </div>
+
+        </div>
+
+        <!-- 2. Сетка графиков Chart.js -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          
+          <!-- График 1: Нахождения -->
+          <div style="background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 0.96rem; font-weight: 700; color: #1e293b;">🗺 Нахождения контейнеров</h4>
+                <div style="font-size: 0.78rem; color: #64748b;">Распределение по станциям и точкам</div>
+              </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartDashDest"></canvas>
+            </div>
+          </div>
+
+          <!-- График 2: Груженный / Порожний -->
+          <div style="background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 0.96rem; font-weight: 700; color: #1e293b;">⚖️ Состояние груза</h4>
+                <div style="font-size: 0.78rem; color: #64748b;">Соотношение груженных и порожних</div>
+              </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartDashStatus"></canvas>
+            </div>
+          </div>
+
+          <!-- График 3: ТОП Клиентов -->
+          <div style="background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 0.96rem; font-weight: 700; color: #1e293b;">🏢 ТОП грузополучателей</h4>
+                <div style="font-size: 0.78rem; color: #64748b;">Лидеры по объемам перевозок</div>
+              </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartDashClients"></canvas>
+            </div>
+          </div>
+
+          <!-- График 4: Сроки в пути -->
+          <div style="background: white; border-radius: 10px; padding: 16px 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 0.96rem; font-weight: 700; color: #1e293b;">⏳ Сроки нахождения в пути</h4>
+                <div style="font-size: 0.78rem; color: #64748b;">Распределение задержек по интервалам</div>
+              </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chartDashDays"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 3. Таблица оперативного контроля простаивающих вагонов -->
+        <div style="background: white; border-radius: 10px; padding: 18px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div>
+              <h4 style="font-size: 1rem; font-weight: 700; color: #991b1b; display: flex; align-items: center; gap: 8px;">
+                <span>⚠️</span> <span>ТОП простаивающих вагонов в пути</span>
+              </h4>
+              <div style="font-size: 0.8rem; color: #64748b;">Вагоны с наибольшим количеством дней без подтвержденного возврата</div>
+            </div>
+            <span id="dashLateCountBadge" style="background: #fee2e2; color: #b91c1c; font-weight: 600; font-size: 0.82rem; padding: 4px 10px; border-radius: 12px;">
+              0 на контроле
+            </span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; border: 1px solid #e2e8f0;">
+              <thead>
+                <tr style="background: #f1f5f9; color: #334155;">
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">№ Вагона</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Грузополучатель</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Груз</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Нахождение</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: center;">Количество дней</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Статус</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: center;">Действие</th>
+                </tr>
+              </thead>
+              <tbody id="dashLateTableBody">
+                <!-- Генерируется динамически -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
+
+      <div class="modal-footer" style="padding: 12px 24px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.82rem; color: #64748b;">
+          💡 Совет: Вы можете переключать выборку «Все записи» / «Только в пути» или распечатать дашборд кнопкой «Печать».
+        </div>
+        <button class="btn btn-secondary" onclick="closeModal('dashboardModal')">Закрыть дашборд</button>
+      </div>
+
     </div>
   </div>
 
@@ -650,6 +1061,11 @@
   <script>
     let allContainers = [];
     let myChart = null;
+    let chartDestInstance = null;
+    let chartStatusInstance = null;
+    let chartClientsInstance = null;
+    let chartDaysInstance = null;
+    let dashboardFilter = 'all'; // 'all' или 'in_transit'
     let isOfflineMode = false;
     let currentEmployee = null;
     let currentAuthMode = 'register'; // 'register' или 'login'
@@ -697,8 +1113,7 @@
       return `${yyyy}-${mm}-${dd}`;
     }
 
-    // Расчет дней в пути: со дня отправки по день возврата (или сегодняшний день) включительно.
-    // День отправки считается за 1 день пути!
+    // Расчет дней в пути: точная календарная разница дней (например, 06.10 -> 07.10 = 1 день)
     function calculateDaysInTransit(sentStr, returnStr) {
       const sent = parseDateOnly(sentStr);
       if (!sent) return 0;
@@ -707,14 +1122,14 @@
       if (ret) {
         const diffMs = ret.getTime() - sent.getTime();
         const diffDays = Math.round(diffMs / 86400000);
-        return diffDays >= 0 ? diffDays + 1 : 0;
+        return diffDays >= 0 ? diffDays : 0;
       }
 
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const diffMs = today.getTime() - sent.getTime();
       const diffDays = Math.round(diffMs / 86400000);
-      return diffDays >= 0 ? diffDays + 1 : 0;
+      return diffDays >= 0 ? diffDays : 0;
     }
 
     function switchAuthMode(mode) {
@@ -1424,15 +1839,15 @@
       const today = toInputDateValue(new Date());
       const sentToday = allContainers.filter(c => toInputDateValue(c.sent_date) === today).length;
       const hairatan = allContainers.filter(c => {
-        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
-        return (c.destination === 'Хайратон' || c.destination === 'Афганистан') && !hasRet;
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('хайратон') || d.includes('афганистан');
       }).length;
       const termez = allContainers.filter(c => {
-        const hasRet = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
-        return (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && !hasRet;
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('термез') || d.includes('узбекистан');
       }).length;
-      const loaded = allContainers.filter(c => c.status === 'Груженный').length;
-      const empty = allContainers.filter(c => c.status === 'Порожний').length;
+      const loaded = allContainers.filter(c => (c.status || '').trim().toLowerCase() === 'груженный').length;
+      const empty = allContainers.filter(c => (c.status || '').trim().toLowerCase() === 'порожний').length;
 
       document.getElementById('kpiSentToday').textContent = sentToday;
       document.getElementById('kpiHairatan').textContent = hairatan;
@@ -1571,11 +1986,27 @@
         return;
       }
 
+      // Подсчет количества каждого номера вагона во всей базе для выявления дубликатов
+      const wagonCounts = {};
+      allContainers.forEach(item => {
+        const num = (item.container_no || '').trim().toUpperCase();
+        if (num) {
+          wagonCounts[num] = (wagonCounts[num] || 0) + 1;
+        }
+      });
+
       tbody.innerHTML = list.map(c => {
         const daysInTransit = calculateDaysInTransit(c.sent_date, c.return_date);
         const hasReturned = Boolean(c.return_date && c.return_date !== '-' && c.return_date !== '');
         const isLate = (c.destination === 'Хайратон' && !hasReturned && daysInTransit > 30);
-        const rowClass = isLate ? 'late' : '';
+        const cNum = (c.container_no || '').trim().toUpperCase();
+        const dupCount = cNum ? (wagonCounts[cNum] || 0) : 0;
+        const isDuplicate = dupCount > 1;
+
+        let rowClasses = [];
+        if (isDuplicate) rowClasses.push('duplicate-row');
+        if (isLate) rowClasses.push('late');
+        const rowClass = rowClasses.join(' ');
         const isChecked = selectedContainerIds.has(c.id);
 
         let statusBadge = `<span class="badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;">Груженный</span>`;
@@ -1590,12 +2021,20 @@
           locBadge = `<span style="font-weight:600; color:#b91c1c;">Хайратон</span>`;
         }
 
+        let wagonDisplay = `<strong>${escapeHtml(c.container_no)}</strong>`;
+        if (isDuplicate) {
+          wagonDisplay = `
+            <strong style="color: #dc2626; font-size: 0.94rem;">${escapeHtml(c.container_no)}</strong>
+            <span class="badge-duplicate" title="Дубликат! Этот номер вагона внесен в систему ${dupCount} раз(а). Пока дубликат не будет удален, он подсвечивается красным цветом.">⚠️ Дубликат (${dupCount})</span>
+          `;
+        }
+
         return `
           <tr class="${rowClass}" onclick="openEditModal(${c.id})">
             <td style="text-align: center;" onclick="event.stopPropagation()">
               <input type="checkbox" class="row-checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="toggleRowSelect(${c.id}, this.checked)" style="cursor: pointer; width: 16px; height: 16px; vertical-align: middle;">
             </td>
-            <td><strong>${escapeHtml(c.container_no)}</strong></td>
+            <td>${wagonDisplay}</td>
             <td>${escapeHtml(c.client || '-')}</td>
             <td>${escapeHtml(c.cargo_name || '-')}</td>
             <td>${escapeHtml(c.barge || '-')}</td>
@@ -1621,6 +2060,13 @@
       const client = document.getElementById('filterClientInput').value.trim().toLowerCase();
       const cargo = document.getElementById('filterCargoInput').value.trim().toLowerCase();
 
+      // Подсчет для фильтрации дубликатов
+      const wagonCounts = {};
+      allContainers.forEach(item => {
+        const num = (item.container_no || '').trim().toUpperCase();
+        if (num) wagonCounts[num] = (wagonCounts[num] || 0) + 1;
+      });
+
       const filtered = allContainers.filter(c => {
         const matchSearch = !search ||
           (c.container_no && c.container_no.toLowerCase().includes(search)) ||
@@ -1631,7 +2077,15 @@
           (c.reason && c.reason.toLowerCase().includes(search));
 
         const matchDest = (dest === 'Все' || dest === 'Все нахождения' || c.destination === dest);
-        const matchStatus = (status === 'Все' || status === 'Все статусы' || c.status === status);
+        
+        let matchStatus = true;
+        if (status === 'Дубликаты') {
+          const cNum = (c.container_no || '').trim().toUpperCase();
+          matchStatus = Boolean(cNum && wagonCounts[cNum] > 1);
+        } else if (status !== 'Все' && status !== 'Все статусы') {
+          matchStatus = (c.status === status);
+        }
+
         const matchClient = !client || (c.client && c.client.toLowerCase().includes(client));
         const matchCargo = !cargo || (c.cargo_name && c.cargo_name.toLowerCase().includes(cargo));
 
@@ -1685,7 +2139,7 @@
       document.getElementById('f_client').value = c.client || '';
       document.getElementById('f_cargo').value = c.cargo_name || '';
       document.getElementById('f_barge').value = c.barge || 'Zarafshon';
-      document.getElementById('f_dest').value = (c.destination === 'Термез-порт') ? 'Термез-порт' : 'Хайратон';
+      document.getElementById('f_dest').value = (c.destination && c.destination.toLowerCase().includes('термез')) ? 'Термез-порт' : 'Хайратон';
       document.getElementById('f_status').value = (c.status === 'Порожний') ? 'Порожний' : 'Груженный';
       document.getElementById('f_reason').value = c.reason || '';
       document.getElementById('f_sent_date').value = toInputDateValue(c.sent_date);
@@ -1948,30 +2402,319 @@
       XLSX.writeFile(wb, `Дислокация_${todayStr}.xlsx`);
     }
 
+    // ================== АНАЛИТИЧЕСКИЙ ДАШБОРД ==================
+    function openDashboardModal() {
+      openModal('dashboardModal');
+      // Даем модальному окну отрендериться, затем инициализируем графики
+      setTimeout(renderDashboard, 60);
+    }
+
+    // Совместимость со старыми вызовами графика
     function openChartModal() {
-      openModal('chartModal');
-      const counts = {};
-      allContainers.forEach(c => {
-        counts[c.destination] = (counts[c.destination] || 0) + 1;
+      openDashboardModal();
+    }
+
+    function setDashboardFilter(filter) {
+      dashboardFilter = filter;
+      const btnAll = document.getElementById('dashFilterAll');
+      const btnTransit = document.getElementById('dashFilterTransit');
+      if (filter === 'all') {
+        if (btnAll) {
+          btnAll.style.background = '#ffffff';
+          btnAll.style.color = '#1e3a8a';
+        }
+        if (btnTransit) {
+          btnTransit.style.background = 'transparent';
+          btnTransit.style.color = '#e2e8f0';
+        }
+      } else {
+        if (btnTransit) {
+          btnTransit.style.background = '#ffffff';
+          btnTransit.style.color = '#1e3a8a';
+        }
+        if (btnAll) {
+          btnAll.style.background = 'transparent';
+          btnAll.style.color = '#e2e8f0';
+        }
+      }
+      renderDashboard();
+    }
+
+    function printDashboard() {
+      window.print();
+    }
+
+    function jumpToContainerFromDash(containerNo) {
+      closeModal('dashboardModal');
+      const search = document.getElementById('searchInput');
+      if (search) {
+        search.value = containerNo;
+        applyFilters();
+      }
+    }
+
+    function renderDashboard() {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+      const timeEl = document.getElementById('dashUpdatedTime');
+      if (timeEl) timeEl.textContent = `Обновлено: сегодня в ${timeStr}`;
+
+      const baseList = allContainers || [];
+      let dataset = baseList;
+      if (dashboardFilter === 'in_transit') {
+        dataset = dataset.filter(c => {
+          const ret = c.return_date;
+          return !ret || ret === '-' || ret === '' || ret === 'null';
+        });
+      }
+
+      const total = dataset.length;
+
+      // Считаем активных в пути (среди всех в базе)
+      const allActive = baseList.filter(c => {
+        const ret = c.return_date;
+        return !ret || ret === '-' || ret === '' || ret === 'null';
+      });
+      const inTransitCount = allActive.length;
+      const inTransitPct = baseList.length > 0 ? Math.round((inTransitCount / baseList.length) * 100) : 0;
+
+      // Нахождения
+      const hairatanCount = dataset.filter(c => c.destination === 'Хайратон' || c.destination === 'Афганистан').length;
+      const termezCount = dataset.filter(c => c.destination === 'Термез-порт' || c.destination === 'Узбекистан').length;
+
+      // Дни и задержки
+      let sumDays = 0;
+      let lateCount = 0;
+      const itemsWithDays = dataset.map(c => {
+        const days = calculateDaysInTransit(c.sent_date, c.return_date);
+        sumDays += days;
+        const isNotReturned = !c.return_date || c.return_date === '-' || c.return_date === '' || c.return_date === 'null';
+        if (days > 15 && isNotReturned) {
+          lateCount++;
+        }
+        return { ...c, days_in_transit: days };
       });
 
-      const ctx = document.getElementById('chartCanvas').getContext('2d');
-      if (myChart) myChart.destroy();
-      myChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(counts),
-          datasets: [{
-            label: 'Количество контейнеров',
-            data: Object.values(counts),
-            backgroundColor: ['#ef4444', '#0d9488', '#3b82f6', '#10b981', '#f59e0b']
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } }
-        }
+      const avgDays = total > 0 ? (sumDays / total).toFixed(1) : '0';
+
+      // Заполняем карточки KPI
+      const kpiTotalEl = document.getElementById('dashKpiTotal');
+      if (kpiTotalEl) kpiTotalEl.textContent = total;
+
+      const kpiInTransitEl = document.getElementById('dashKpiInTransit');
+      if (kpiInTransitEl) kpiInTransitEl.textContent = inTransitCount;
+
+      const kpiInTransitPctEl = document.getElementById('dashKpiInTransitPct');
+      if (kpiInTransitPctEl) kpiInTransitPctEl.textContent = `${inTransitPct}% от всех в базе`;
+
+      const kpiHairatanEl = document.getElementById('dashKpiHairatan');
+      if (kpiHairatanEl) kpiHairatanEl.textContent = hairatanCount;
+
+      const kpiTermezEl = document.getElementById('dashKpiTermez');
+      if (kpiTermezEl) kpiTermezEl.textContent = termezCount;
+
+      const kpiAvgDaysEl = document.getElementById('dashKpiAvgDays');
+      if (kpiAvgDaysEl) kpiAvgDaysEl.textContent = `${avgDays} дн.`;
+
+      const kpiLateEl = document.getElementById('dashKpiLate');
+      if (kpiLateEl) kpiLateEl.textContent = lateCount;
+
+      // 1. График: Нахождения (Doughnut)
+      const destCounts = {};
+      dataset.forEach(c => {
+        const d = (c.destination || 'Не указано').trim();
+        destCounts[d] = (destCounts[d] || 0) + 1;
       });
+      const destLabels = Object.keys(destCounts);
+      const destValues = Object.values(destCounts);
+      const destPalette = ['#ef4444', '#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'];
+
+      const isDark = document.body.classList.contains('dark-mode') || document.documentElement.classList.contains('dark-mode');
+      const chartTextColor = isDark ? '#cbd5e1' : '#475569';
+      const chartGridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)';
+      const chartBorderColor = isDark ? '#1e293b' : '#ffffff';
+
+      const canvasDest = document.getElementById('chartDashDest');
+      if (canvasDest) {
+        const ctxDest = canvasDest.getContext('2d');
+        if (chartDestInstance) chartDestInstance.destroy();
+        chartDestInstance = new Chart(ctxDest, {
+          type: 'doughnut',
+          data: {
+            labels: destLabels.length ? destLabels : ['Нет записей'],
+            datasets: [{
+              data: destValues.length ? destValues : [1],
+              backgroundColor: destPalette.slice(0, Math.max(destLabels.length, 1)),
+              borderWidth: 2,
+              borderColor: chartBorderColor
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: chartTextColor } }
+            },
+            cutout: '62%'
+          }
+        });
+      }
+
+      // 2. График: Статус (Груженный vs Порожний)
+      const statusCounts = {};
+      dataset.forEach(c => {
+        const s = (c.status || 'Не указан').trim();
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+      });
+      const statusLabels = Object.keys(statusCounts);
+      const statusValues = Object.values(statusCounts);
+      const statusColors = statusLabels.map(l => {
+        if (l.toLowerCase().includes('груж')) return '#3b82f6';
+        if (l.toLowerCase().includes('порож')) return '#10b981';
+        return '#94a3b8';
+      });
+
+      const canvasStatus = document.getElementById('chartDashStatus');
+      if (canvasStatus) {
+        const ctxStatus = canvasStatus.getContext('2d');
+        if (chartStatusInstance) chartStatusInstance.destroy();
+        chartStatusInstance = new Chart(ctxStatus, {
+          type: 'pie',
+          data: {
+            labels: statusLabels.length ? statusLabels : ['Нет записей'],
+            datasets: [{
+              data: statusValues.length ? statusValues : [1],
+              backgroundColor: statusColors.length ? statusColors : ['#cbd5e1'],
+              borderWidth: 2,
+              borderColor: chartBorderColor
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: chartTextColor } }
+            }
+          }
+        });
+      }
+
+      // 3. График: ТОП Грузополучателей (Клиентов)
+      const clientCounts = {};
+      dataset.forEach(c => {
+        const cl = (c.client || '').trim();
+        if (cl) clientCounts[cl] = (clientCounts[cl] || 0) + 1;
+      });
+      const sortedClients = Object.entries(clientCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+
+      const clientLabels = sortedClients.map(x => x[0].length > 18 ? x[0].substring(0, 16) + '..' : x[0]);
+      const clientValues = sortedClients.map(x => x[1]);
+
+      const canvasClients = document.getElementById('chartDashClients');
+      if (canvasClients) {
+        const ctxClients = canvasClients.getContext('2d');
+        if (chartClientsInstance) chartClientsInstance.destroy();
+        chartClientsInstance = new Chart(ctxClients, {
+          type: 'bar',
+          data: {
+            labels: clientLabels.length ? clientLabels : ['Нет клиентов'],
+            datasets: [{
+              label: 'Вагонов',
+              data: clientValues.length ? clientValues : [0],
+              backgroundColor: '#6366f1',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, ticks: { precision: 0, color: chartTextColor }, grid: { color: chartGridColor } },
+              y: { ticks: { font: { size: 11 }, color: chartTextColor }, grid: { color: chartGridColor } }
+            }
+          }
+        });
+      }
+
+      // 4. График: Сроки в пути (Гистограмма интервалов)
+      let b1_5 = 0, b6_10 = 0, b11_20 = 0, b20plus = 0;
+      itemsWithDays.forEach(c => {
+        const d = c.days_in_transit;
+        if (d <= 5) b1_5++;
+        else if (d <= 10) b6_10++;
+        else if (d <= 20) b11_20++;
+        else b20plus++;
+      });
+
+      const canvasDays = document.getElementById('chartDashDays');
+      if (canvasDays) {
+        const ctxDays = canvasDays.getContext('2d');
+        if (chartDaysInstance) chartDaysInstance.destroy();
+        chartDaysInstance = new Chart(ctxDays, {
+          type: 'bar',
+          data: {
+            labels: ['1–5 дн.', '6–10 дн.', '11–20 дн.', 'Более 20 дн.'],
+            datasets: [{
+              label: 'Вагонов',
+              data: [b1_5, b6_10, b11_20, b20plus],
+              backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: chartTextColor }, grid: { color: chartGridColor } },
+              y: { beginAtZero: true, ticks: { precision: 0, color: chartTextColor }, grid: { color: chartGridColor } }
+            }
+          }
+        });
+      }
+
+      // 5. Заполняем таблицу ТОП простаивающих вагонов (только активные без возврата)
+      const lateContainers = itemsWithDays
+        .filter(c => (!c.return_date || c.return_date === '-' || c.return_date === '' || c.return_date === 'null'))
+        .sort((a, b) => b.days_in_transit - a.days_in_transit)
+        .slice(0, 6);
+
+      const tableBody = document.getElementById('dashLateTableBody');
+      const lateBadge = document.getElementById('dashLateCountBadge');
+      if (lateBadge) lateBadge.textContent = `${lateCount} задерживаются`;
+
+      if (tableBody) {
+        if (!lateContainers.length) {
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 18px; color: #16a34a; font-weight: 600;">✅ Все вагоны движутся в пределах графика!</td></tr>`;
+        } else {
+          tableBody.innerHTML = lateContainers.map(c => {
+            const isCrit = c.days_in_transit > 15;
+            const badgeBg = isCrit ? '#fee2e2' : (c.days_in_transit > 10 ? '#fef3c7' : '#e0f2fe');
+            const badgeColor = isCrit ? '#dc2626' : (c.days_in_transit > 10 ? '#b45309' : '#0369a1');
+            return `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 10px; font-weight: 700; color: #1e293b; border: 1px solid #cbd5e1;">${escapeHtml(c.container_no)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #cbd5e1;">${escapeHtml(c.client || '-')}</td>
+                <td style="padding: 8px 10px; border: 1px solid #cbd5e1;">${escapeHtml(c.cargo_name || '-')}</td>
+                <td style="padding: 8px 10px; border: 1px solid #cbd5e1;"><strong>${escapeHtml(c.destination || '-')}</strong></td>
+                <td style="padding: 8px 10px; text-align: center; border: 1px solid #cbd5e1;">
+                  <span style="background: ${badgeBg}; color: ${badgeColor}; padding: 3px 8px; border-radius: 12px; font-weight: 700;">
+                    ${c.days_in_transit} дн.
+                  </span>
+                </td>
+                <td style="padding: 8px 10px; border: 1px solid #cbd5e1;">${escapeHtml(c.status || '-')}</td>
+                <td style="padding: 8px 10px; text-align: center; border: 1px solid #cbd5e1;">
+                  <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.78rem;" onclick="jumpToContainerFromDash('${escapeHtml(c.container_no)}')">Найти 🔍</button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
     }
 
     async function openReportModal() {
@@ -2065,7 +2808,52 @@
       if (changed) applyFilters();
     }
 
+    // ================== УПРАВЛЕНИЕ ТЕМОЙ (ДЕНЬ / НОЧЬ) ==================
+    function initTheme() {
+      const saved = localStorage.getItem('dislocation_theme');
+      const isDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (isDark) {
+        document.documentElement.classList.add('dark-mode');
+        document.body.classList.add('dark-mode');
+      } else {
+        document.documentElement.classList.remove('dark-mode');
+        document.body.classList.remove('dark-mode');
+      }
+      updateThemeButton(isDark);
+    }
+
+    function toggleTheme() {
+      const isDark = document.body.classList.toggle('dark-mode');
+      if (isDark) {
+        document.documentElement.classList.add('dark-mode');
+        localStorage.setItem('dislocation_theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark-mode');
+        localStorage.setItem('dislocation_theme', 'light');
+      }
+      updateThemeButton(isDark);
+
+      // Если открыт дашборд — моментально перерисовываем графики под текущую тему
+      const dashModal = document.getElementById('dashboardModal');
+      if (dashModal && dashModal.classList.contains('active')) {
+        renderDashboard();
+      }
+    }
+
+    function updateThemeButton(isDark) {
+      const icon = document.getElementById('themeToggleIcon');
+      const text = document.getElementById('themeToggleText');
+      const btn = document.getElementById('themeToggleBtn');
+      if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+      if (text) text.textContent = isDark ? 'Дневной режим' : 'Ночной режим';
+      if (btn) {
+        btn.style.background = isDark ? 'rgba(251, 191, 36, 0.25)' : 'rgba(255, 255, 255, 0.2)';
+        btn.style.borderColor = isDark ? 'rgba(251, 191, 36, 0.5)' : 'rgba(255, 255, 255, 0.35)';
+      }
+    }
+
     // Старт
+    initTheme();
     initUserSession();
     fetchContainers().then(() => {
       setTimeout(sanitizeFilterAutofill, 250);

@@ -293,14 +293,13 @@ def calculate_days(sent_date_str: str, return_date_str: Optional[str]) -> int:
 
     ret_d = parse_date_safe(return_date_str)
     if ret_d:
-        # Со дня отправки по день возврата включительно
         diff = (ret_d - sent_d).days
-        return max(diff + 1, 1) if diff >= 0 else 0
+        return max(diff, 0)
 
-    # Со дня отправки по сегодняшний день включительно (день отправки = 1 день в пути)
+    # Со дня отправки по сегодняшний день (точная разница)
     today = date.today()
     if today >= sent_d:
-        return (today - sent_d).days + 1
+        return (today - sent_d).days
     return 0
 
 
@@ -746,17 +745,17 @@ def get_stats():
     cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE sent_date = ?", (today_str,))
     sent_today = cur.fetchone()["cnt"]
 
-    # В Хайратоне (не возвращенные)
+    # В Хайратоне
     cur.execute("""
         SELECT COUNT(*) as cnt FROM containers
-        WHERE (destination = 'Хайратон' OR destination = 'Афганистан') AND (return_date IS NULL OR return_date = '' OR return_date = '-')
+        WHERE LOWER(destination) LIKE '%хайратон%' OR LOWER(destination) LIKE '%афганистан%'
     """)
     hairatan_cnt = cur.fetchone()["cnt"]
 
-    # В Термез-порту (не возвращенные)
+    # В Термез-порту
     cur.execute("""
         SELECT COUNT(*) as cnt FROM containers
-        WHERE (destination = 'Термез-порт' OR destination = 'Узбекистан') AND (return_date IS NULL OR return_date = '' OR return_date = '-')
+        WHERE LOWER(destination) LIKE '%термез%' OR LOWER(destination) LIKE '%узбекистан%'
     """)
     termez_cnt = cur.fetchone()["cnt"]
 
