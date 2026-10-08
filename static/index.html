@@ -299,10 +299,12 @@
 
     @media print {
       body * { visibility: hidden; }
-      #dashboardModal, #dashboardModal * { visibility: visible; }
-      #dashboardModal { position: absolute; left: 0; top: 0; width: 100%; display: block !important; background: white !important; }
-      #dashboardModal .modal-card { max-width: 100% !important; box-shadow: none !important; border: none !important; }
-      #dashboardModal .modal-header .btn, #dashboardModal .modal-header .close-btn, #dashboardModal .modal-footer { display: none !important; }
+      #dashboardModal, #dashboardModal *,
+      #reportModal, #reportModal * { visibility: visible; }
+      #dashboardModal, #reportModal { position: absolute; left: 0; top: 0; width: 100%; display: block !important; background: white !important; }
+      #dashboardModal .modal-card, #reportModal .modal-card { max-width: 100% !important; box-shadow: none !important; border: none !important; }
+      #dashboardModal .modal-header .btn, #dashboardModal .modal-header .close-btn, #dashboardModal .modal-footer,
+      #reportModal .modal-header .btn, #reportModal .modal-header .close-btn, #reportModal .modal-footer { display: none !important; }
     }
 
     /* ================= СТИЛИ ТЕМНОЙ ТЕМЫ (ПОЛНАЯ ПОДДЕРЖКА) ================= */
@@ -486,6 +488,38 @@
       background: #1e293b !important;
       border-top-color: #334155 !important;
     }
+    .dark-mode #reportModal #reportPrintArea {
+      background: #0b0f19 !important;
+    }
+    .dark-mode #reportModal div[style*="background: white"],
+    .dark-mode #reportModal div[style*="background: #ffffff"] {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode #reportModal #repPeriodTitle {
+      color: #f8fafc !important;
+    }
+    .dark-mode #reportModal div[style*="background: #f1f5f9"] {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+    }
+    .dark-mode #reportModal #repKpiTotal {
+      color: #f8fafc !important;
+    }
+    .dark-mode #reportModal table thead tr {
+      background: #0f172a !important;
+      color: #94a3b8 !important;
+    }
+    .dark-mode #reportModal table th,
+    .dark-mode #reportModal table td {
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+      background: #1e293b !important;
+    }
+    .dark-mode #reportModal .modal-footer {
+      background: #1e293b !important;
+      border-top-color: #334155 !important;
+    }
   </style>
 </head>
 <body>
@@ -625,7 +659,7 @@
 
         <div class="form-group">
           <label for="f_no" id="label_f_no">
-            Номер контейнера / вагона *
+            Номер контейнера *
             <span id="noBatchHint" style="font-size:0.78rem; font-weight:normal; color:#2563eb; margin-left:6px;">
               (вставляйте любое количество: через Enter, пробел или запятую)
             </span>
@@ -634,9 +668,9 @@
           <div id="noBatchCount" style="font-size: 0.82rem; color: #475569; margin-top: 4px; font-weight: 500;">
             Распознано номеров: <span id="batchCountNum" style="font-weight:700; color:#1e40af; font-size:0.95rem;">0</span> шт.
           </div>
-          <!-- Уведомление о повторном вводе вагона КРАСНЫМ ЦВЕТОМ -->
+          <!-- Уведомление о повторном вводе контейнера КРАСНЫМ ЦВЕТОМ -->
           <div id="duplicateWagonWarning" style="display: none; margin-top: 8px; padding: 8px 12px; background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 6px; color: #dc2626; font-size: 0.88rem; font-weight: 700; line-height: 1.4;">
-            ⚠️ <span id="duplicateWagonText">Вы уже данный вагон вводили!</span>
+            ⚠️ <span id="duplicateWagonText">Вы уже данный контейнер вводили!</span>
           </div>
         </div>
 
@@ -755,18 +789,12 @@
       <div class="modal-body" id="dashboardPrintArea" style="padding: 20px 24px; background: #f8fafc; overflow-y: auto; flex: 1;">
         
         <!-- 1. Сетка ключевых показателей (KPI Cards) -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;">
           
           <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #3b82f6;">
-            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Всего вагонов</div>
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Всего контейнеров</div>
             <div id="dashKpiTotal" style="font-size: 1.7rem; font-weight: 700; color: #1e293b; margin: 4px 0;">0</div>
             <div style="font-size: 0.78rem; color: #64748b;">в текущей выборке</div>
-          </div>
-
-          <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #0284c7;">
-            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Сейчас в пути</div>
-            <div id="dashKpiInTransit" style="font-size: 1.7rem; font-weight: 700; color: #0284c7; margin: 4px 0;">0</div>
-            <div id="dashKpiInTransitPct" style="font-size: 0.78rem; color: #0284c7; font-weight: 600;">0% от общего</div>
           </div>
 
           <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #dc2626;">
@@ -782,9 +810,9 @@
           </div>
 
           <div style="background: white; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #8b5cf6;">
-            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Средний срок</div>
+            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">В среднем</div>
             <div id="dashKpiAvgDays" style="font-size: 1.7rem; font-weight: 700; color: #8b5cf6; margin: 4px 0;">0 дн.</div>
-            <div style="font-size: 0.78rem; color: #64748b;">время в пути</div>
+            <div style="font-size: 0.78rem; color: #64748b;">нахождение в Хайратоне</div>
           </div>
 
           <div style="background: #fef2f2; border-radius: 10px; padding: 14px 16px; border: 1px solid #fecaca; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid #ef4444;">
@@ -852,14 +880,14 @@
 
         </div>
 
-        <!-- 3. Таблица оперативного контроля простаивающих вагонов -->
+        <!-- 3. Таблица оперативного контроля задерживающихся контейнеров -->
         <div style="background: white; border-radius: 10px; padding: 18px 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
               <h4 style="font-size: 1rem; font-weight: 700; color: #991b1b; display: flex; align-items: center; gap: 8px;">
-                <span>⚠️</span> <span>ТОП простаивающих вагонов в пути</span>
+                <span>⚠️</span> <span>ТОП задерживающихся контейнеров в пути</span>
               </h4>
-              <div style="font-size: 0.8rem; color: #64748b;">Вагоны с наибольшим количеством дней без подтвержденного возврата</div>
+              <div style="font-size: 0.8rem; color: #64748b;">Контейнеры с наибольшим количеством дней без подтвержденного возврата</div>
             </div>
             <span id="dashLateCountBadge" style="background: #fee2e2; color: #b91c1c; font-weight: 600; font-size: 0.82rem; padding: 4px 10px; border-radius: 12px;">
               0 на контроле
@@ -870,7 +898,7 @@
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; border: 1px solid #e2e8f0;">
               <thead>
                 <tr style="background: #f1f5f9; color: #334155;">
-                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">№ Вагона</th>
+                  <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">№ Контейнера</th>
                   <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Грузополучатель</th>
                   <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Груз</th>
                   <th style="padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left;">Нахождение</th>
@@ -898,16 +926,169 @@
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО: ОТЧЕТ -->
+  <!-- МОДАЛЬНОЕ ОКНО: ОТЧЕТ ПО ПЕРИОДАМ И АРХИВУ РЕЙСОВ -->
   <div class="modal-backdrop" id="reportModal">
-    <div class="modal-card" style="max-width: 900px;">
-      <div class="modal-header">
-        <h3>📋 Отчет: Афганистан vs Узбекистан</h3>
-        <button class="close-btn" onclick="closeModal('reportModal')">✕</button>
+    <div class="modal-card" style="max-width: 1050px; width: 95vw; max-height: 92vh; display: flex; flex-direction: column;">
+      
+      <!-- Шапка модального окна отчета -->
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); color: white; padding: 16px 24px;">
+        <div>
+          <h3 style="color: white; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>📋</span> <span>Периодический отчет по дислокации (Активные и архивные рейсы)</span>
+          </h3>
+          <div style="font-size: 0.82rem; color: #93c5fd; margin-top: 3px;">
+            Выгрузка за любой месяц или диапазон дат. Все завершенные рейсы и удаленные дубликаты сохраняются в архиве.
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn" style="background: #16a34a; color: white; border: none; font-size: 0.85rem;" onclick="exportPeriodReportExcel()" title="Скачать сформированный отчет в представительском формате Excel">
+            📥 Экспорт в Excel (.xlsx)
+          </button>
+          <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 12px;" onclick="printPeriodReport()">
+            🖨️ Печать
+          </button>
+          <button class="btn" style="background: #ef4444; color: white; border: none; font-size: 0.82rem; padding: 6px 10px;" onclick="clearArchiveHistory()" title="Очистить накопленную историю удаленных дубликатов для освобождения памяти">
+            🧹 Очистить архив
+          </button>
+          <button class="close-btn" style="color: white; font-size: 1.5rem;" onclick="closeModal('reportModal')">&times;</button>
+        </div>
       </div>
-      <div class="modal-body" id="reportContent">
-        Загрузка отчета...
+
+      <!-- Тело отчета со скроллом -->
+      <div class="modal-body" id="reportPrintArea" style="padding: 18px 24px; background: #f8fafc; overflow-y: auto; flex: 1;">
+        
+        <!-- 1. Панель фильтров по периоду и источникам данных -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+          
+          <!-- Быстрые кнопки выбора месяцев -->
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;">
+            <span style="font-size: 0.82rem; font-weight: 700; color: #475569; text-transform: uppercase;">Быстрый выбор:</span>
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="setReportPreset('this_month')">📅 Текущий месяц</button>
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="setReportPreset('last_month')">📅 Прошлый месяц</button>
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="setReportPreset('september_2026')">🍂 Сентябрь 2026</button>
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="setReportPreset('october_2026')">🍁 Октябрь 2026</button>
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="setReportPreset('all_time')">🌐 За все время</button>
+          </div>
+
+          <!-- Поля дат и фильтры -->
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+            <div>
+              <label for="repDateMode" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">Фильтр дат по:</label>
+              <select id="repDateMode" class="select-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+                <option value="sent" selected>Дате отправки (стандарт)</option>
+                <option value="return">Дате возврата</option>
+              </select>
+            </div>
+            <div>
+              <label for="repDateFrom" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">С даты:</label>
+              <input type="date" id="repDateFrom" class="input-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+            </div>
+            <div>
+              <label for="repDateTo" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">По дату:</label>
+              <input type="date" id="repDateTo" class="input-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+            </div>
+            <div>
+              <label for="repDest" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">Нахождение:</label>
+              <select id="repDest" class="select-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+                <option value="Все">Все нахождения</option>
+                <option value="Хайратон">Хайратон</option>
+                <option value="Термез-порт">Термез-порт</option>
+              </select>
+            </div>
+            <div>
+              <label for="repStatus" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">Статус груза:</label>
+              <select id="repStatus" class="select-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+                <option value="Все">Все статусы</option>
+                <option value="Груженный">Груженный</option>
+                <option value="Порожний">Порожний</option>
+              </select>
+            </div>
+            <div>
+              <label for="repSource" style="display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 3px;">Выборка записей:</label>
+              <select id="repSource" class="select-control" style="font-size: 0.85rem; padding: 6px 10px;" onchange="runPeriodReport()">
+                <option value="all">Все рейсы (Активные + Архивные дубликаты)</option>
+                <option value="active">Только активные в системе</option>
+                <option value="archived">Только удаленные дубликаты</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="padding: 7px 14px; font-size: 0.85rem;" onclick="runPeriodReport()">
+              🔍 Сформировать
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Сводные KPI за выбранный период -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px;">
+          <div style="background: white; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Всего в отчете</div>
+            <div id="repKpiTotal" style="font-size: 1.5rem; font-weight: 700; color: #1e293b; margin: 2px 0;">0</div>
+            <div style="font-size: 0.75rem; color: #64748b;">рейсов за период</div>
+          </div>
+          <div style="background: white; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left: 4px solid #dc2626;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">В Хайратоне</div>
+            <div id="repKpiHairatan" style="font-size: 1.5rem; font-weight: 700; color: #dc2626; margin: 2px 0;">0</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Афганистан</div>
+          </div>
+          <div style="background: white; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left: 4px solid #16a34a;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">В Термез-порту</div>
+            <div id="repKpiTermez" style="font-size: 1.5rem; font-weight: 700; color: #16a34a; margin: 2px 0;">0</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Узбекистан</div>
+          </div>
+          <div style="background: white; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left: 4px solid #8b5cf6;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">В среднем</div>
+            <div id="repKpiAvgDays" style="font-size: 1.5rem; font-weight: 700; color: #8b5cf6; margin: 2px 0;">0 дн.</div>
+            <div style="font-size: 0.75rem; color: #64748b;">нахождение в Хайратоне</div>
+          </div>
+          <div style="background: white; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left: 4px solid #d97706;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Архивные рейсы</div>
+            <div id="repKpiArchived" style="font-size: 1.5rem; font-weight: 700; color: #d97706; margin: 2px 0;">0</div>
+            <div style="font-size: 0.75rem; color: #64748b;">ранее удаленные</div>
+          </div>
+        </div>
+
+        <!-- 3. Таблица записей отчета -->
+        <div style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+          <div style="padding: 10px 16px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.88rem; font-weight: 700; color: #1e293b;" id="repPeriodTitle">
+              Период: Все время
+            </div>
+            <div style="font-size: 0.8rem; color: #64748b;" id="repPeriodCount">
+              Записей: 0
+            </div>
+          </div>
+          <div style="max-height: 440px; overflow: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+              <thead style="position: sticky; top: 0; background: #1e3a8a; color: white; z-index: 2;">
+                <tr>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">№ Контейнера</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: center;">Статус рейса</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">Грузополучатель</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">Груз</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">Баржа</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">Нахождение</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">Состояние</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: center;">Отправка</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: center;">Возврат</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: center;">Дней</th>
+                  <th style="padding: 8px 10px; border: 1px solid #1e3a8a; text-align: left;">История / Пользователь</th>
+                </tr>
+              </thead>
+              <tbody id="repTableBody">
+                <tr><td colspan="11" style="text-align: center; padding: 25px; color: #64748b;">Формирование отчета...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
+
+      <div class="modal-footer" style="padding: 12px 24px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.82rem; color: #64748b;">
+          💡 Все данные удаленных дубликатов и завершенных рейсов сохраняются навсегда для руководства.
+        </div>
+        <button class="btn btn-secondary" onclick="closeModal('reportModal')">Закрыть отчет</button>
+      </div>
+
     </div>
   </div>
 
@@ -948,13 +1129,16 @@
           Здесь хранятся названия, которые система запоминает при вводе. Вы можете удалить ошибочные названия крестиком или полностью очистить список в любое время, если он переполнен.
         </p>
 
-        <!-- Табы: Грузополучатели / Наименования грузов -->
+        <!-- Табы: Грузополучатели / Наименования грузов / Резервная копия базы -->
         <div style="display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; gap: 8px;">
           <button type="button" id="tabDictClients" onclick="switchDictTab('clients')" style="padding: 8px 16px; font-weight: 600; font-size: 0.92rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid #2563eb; color: #2563eb;">
             🏢 Грузополучатели (<span id="dictClientsCount">0</span>)
           </button>
           <button type="button" id="tabDictCargos" onclick="switchDictTab('cargos')" style="padding: 8px 16px; font-weight: 600; font-size: 0.92rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
             📦 Наименования грузов (<span id="dictCargosCount">0</span>)
+          </button>
+          <button type="button" id="tabDictBackup" onclick="switchDictTab('backup')" style="padding: 8px 16px; font-weight: 600; font-size: 0.92rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
+            💾 Резервная копия базы
           </button>
         </div>
 
@@ -981,6 +1165,30 @@
           </div>
           <div id="dictCargosList" style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
             <!-- Список генерируется JS -->
+          </div>
+        </div>
+
+        <!-- Контейнер вкладки Резервная копия базы -->
+        <div id="dictBackupPane" style="display: none;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+            <h4 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 0.95rem;">💾 Скачать резервную копию всех данных</h4>
+            <p style="font-size: 0.84rem; color: #64748b; margin: 0 0 12px 0; line-height: 1.45;">
+              Скачивает файл <code>.json</code> со всеми активными контейнерами, удаленными дубликатами, архивом рейсов и справочниками. Храните этот файл для 100% защиты от любых сбоев.
+            </p>
+            <button type="button" class="btn btn-primary" onclick="exportFullBackupJson()" style="padding: 8px 16px; font-size: 0.88rem; font-weight: 600;">
+              💾 Скачать резервную копию (.json)
+            </button>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+            <h4 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 0.95rem;">📥 Восстановить базу из резервной копии</h4>
+            <p style="font-size: 0.84rem; color: #64748b; margin: 0 0 12px 0; line-height: 1.45;">
+              Загрузите ранее сохраненный файл резервной копии для восстановления всех контейнеров и архива на любом компьютере.
+            </p>
+            <input type="file" id="importBackupFileInput" accept=".json" style="display: none;" onchange="importFullBackupJson(event)">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('importBackupFileInput').click()" style="padding: 8px 16px; font-size: 0.88rem; font-weight: 600;">
+              📂 Выбрать файл резервной копии и восстановить
+            </button>
           </div>
         </div>
       </div>
@@ -1655,31 +1863,30 @@
       currentDictTab = tab;
       const tabClients = document.getElementById('tabDictClients');
       const tabCargos = document.getElementById('tabDictCargos');
+      const tabBackup = document.getElementById('tabDictBackup');
       const paneClients = document.getElementById('dictClientsPane');
       const paneCargos = document.getElementById('dictCargosPane');
+      const paneBackup = document.getElementById('dictBackupPane');
+
+      [tabClients, tabCargos, tabBackup].forEach(t => {
+        if (t) {
+          t.style.borderBottom = '3px solid transparent';
+          t.style.color = '#64748b';
+        }
+      });
+      [paneClients, paneCargos, paneBackup].forEach(p => {
+        if (p) p.style.display = 'none';
+      });
 
       if (tab === 'clients') {
-        if (tabClients) {
-          tabClients.style.borderBottom = '3px solid #2563eb';
-          tabClients.style.color = '#2563eb';
-        }
-        if (tabCargos) {
-          tabCargos.style.borderBottom = '3px solid transparent';
-          tabCargos.style.color = '#64748b';
-        }
+        if (tabClients) { tabClients.style.borderBottom = '3px solid #2563eb'; tabClients.style.color = '#2563eb'; }
         if (paneClients) paneClients.style.display = 'block';
-        if (paneCargos) paneCargos.style.display = 'none';
-      } else {
-        if (tabCargos) {
-          tabCargos.style.borderBottom = '3px solid #2563eb';
-          tabCargos.style.color = '#2563eb';
-        }
-        if (tabClients) {
-          tabClients.style.borderBottom = '3px solid transparent';
-          tabClients.style.color = '#64748b';
-        }
+      } else if (tab === 'cargos') {
+        if (tabCargos) { tabCargos.style.borderBottom = '3px solid #2563eb'; tabCargos.style.color = '#2563eb'; }
         if (paneCargos) paneCargos.style.display = 'block';
-        if (paneClients) paneClients.style.display = 'none';
+      } else if (tab === 'backup') {
+        if (tabBackup) { tabBackup.style.borderBottom = '3px solid #2563eb'; tabBackup.style.color = '#2563eb'; }
+        if (paneBackup) paneBackup.style.display = 'block';
       }
       renderDictionaryLists();
     }
@@ -1787,14 +1994,124 @@
         if (duplicates.length > 0) {
           dupBox.style.display = 'block';
           if (duplicates.length === 1) {
-            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данный вагон вводили:</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${escapeHtml(duplicates[0])}</strong>`;
+            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данный контейнер вводили:</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${escapeHtml(duplicates[0])}</strong>`;
           } else {
-            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данные вагоны вводили (${duplicates.length} шт.):</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${duplicates.map(escapeHtml).join(', ')}</strong>`;
+            dupText.innerHTML = `⚠️ <span style="color:#b91c1c;">Вы уже данные контейнеры вводили (${duplicates.length} шт.):</span> <strong style="text-decoration: underline; color:#dc2626; font-size: 0.95rem;">${duplicates.map(escapeHtml).join(', ')}</strong>`;
           }
         } else {
           dupBox.style.display = 'none';
         }
       }
+    }
+
+    // ================== РЕЗЕРВНАЯ КОПИЯ И АВТО-СИНХРОНИЗАЦИЯ ==================
+    async function syncLocalContainersToServer(localData) {
+      if (!localData || !localData.length) return;
+      const api = getApiBase();
+      for (const c of localData) {
+        try {
+          await fetch(`${api}/containers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              container_no: c.container_no,
+              client: c.client || '',
+              cargo_name: c.cargo_name || '',
+              barge: c.barge || '',
+              destination: c.destination || 'Термез-порт',
+              status: c.status || 'Груженный',
+              reason: c.reason || '',
+              sent_date: c.sent_date || new Date().toISOString().split('T')[0],
+              return_date: c.return_date || null,
+              country: c.country || '',
+              added_by: c.added_by || 'Диспетчер'
+            })
+          });
+        } catch (e) {
+          console.warn('Ошибка синхронизации контейнера:', c.container_no, e);
+        }
+      }
+    }
+
+    function exportFullBackupJson() {
+      try {
+        const backupData = {
+          app: "Система Дислокации Контейнеров PRO",
+          version: "3.0.0",
+          export_date: new Date().toISOString(),
+          containers: allContainers || [],
+          archive: JSON.parse(localStorage.getItem('dislocation_containers_archive') || '[]'),
+          clients: getRememberedClients(),
+          cargos: getRememberedCargos(),
+          users: getRegisteredUsers()
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const d = new Date();
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        a.download = `backup_dislocation_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        alert(`✅ Резервная копия успешно создана!\nСохранено:\n- Активных контейнеров: ${(allContainers || []).length} шт.\n- Архивных рейсов: ${backupData.archive.length} шт.`);
+      } catch (err) {
+        alert('Ошибка создания резервной копии: ' + err.message);
+      }
+    }
+
+    function importFullBackupJson(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported.containers || !Array.isArray(imported.containers)) {
+            alert('⚠️ Ошибка: выбранный файл не содержит корректных данных дислокации.');
+            return;
+          }
+          const cntCount = imported.containers.length;
+          const archCount = Array.isArray(imported.archive) ? imported.archive.length : 0;
+          if (!confirm(`Обнаружена резервная копия:\n- Контейнеров: ${cntCount} шт.\n- Архивных рейсов: ${archCount} шт.\n\nВосстановить данные в систему?`)) {
+            event.target.value = '';
+            return;
+          }
+
+          allContainers = imported.containers;
+          saveLocalData(allContainers);
+
+          if (imported.archive && Array.isArray(imported.archive)) {
+            localStorage.setItem('dislocation_containers_archive', JSON.stringify(imported.archive));
+          }
+          if (imported.clients && Array.isArray(imported.clients)) {
+            localStorage.setItem('dislocation_clients_history', JSON.stringify(imported.clients));
+          }
+          if (imported.cargos && Array.isArray(imported.cargos)) {
+            localStorage.setItem('dislocation_cargos_history', JSON.stringify(imported.cargos));
+          }
+          if (imported.users && typeof imported.users === 'object') {
+            saveRegisteredUsers(imported.users);
+          }
+
+          if (!isOfflineMode) {
+            await syncLocalContainersToServer(allContainers);
+          }
+
+          refreshSuggestions();
+          applyFilters();
+          updateOfflineStats();
+          alert('✅ Данные успешно восстановлены из резервной копии!');
+          closeModal('dictionaryModal');
+        } catch (err) {
+          alert('Ошибка чтения файла: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
     }
 
     // ================== ЗАГРУЗКА И СИНХРОНИЗАЦИЯ ==================
@@ -1803,7 +2120,24 @@
       try {
         const res = await fetch(`${api}/containers`, { method: 'GET' });
         if (!res.ok) throw new Error('Сервер вернул статус ' + res.status);
-        allContainers = await res.json();
+        const serverData = await res.json();
+        const localData = getLocalData();
+
+        // Автоматическая миграция: если сервер только что запущен с чистой базой,
+        // но в браузере уже есть данные - переносим их в базу сервера dislocation.db!
+        if (serverData.length === 0 && localData.length > 0) {
+          console.log('Автоматическая синхронизация локальных контейнеров на сервер...');
+          await syncLocalContainersToServer(localData);
+          const reFetch = await fetch(`${api}/containers`, { method: 'GET' });
+          if (reFetch.ok) {
+            allContainers = await reFetch.json();
+          } else {
+            allContainers = localData;
+          }
+        } else {
+          allContainers = serverData;
+        }
+
         setConnectionStatus(true, api || 'локальный хост');
         saveLocalData(allContainers);
         refreshSuggestions();
@@ -1912,6 +2246,12 @@
       const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
       const api = getApiBase();
 
+      // Сохраняем в архив перед удалением ТОЛЬКО контейнеры-дубликаты
+      const itemsToArchive = allContainers.filter(x => selectedContainerIds.has(x.id) && isContainerDuplicate(x.container_no));
+      if (itemsToArchive.length > 0) {
+        archiveContainersLocally(itemsToArchive);
+      }
+
       if (isOfflineMode) {
         allContainers = allContainers.filter(x => !selectedContainerIds.has(x.id));
         saveLocalData(allContainers);
@@ -1985,7 +2325,7 @@
         return;
       }
 
-      // Подсчет количества каждого номера вагона во всей базе для выявления дубликатов
+      // Подсчет количества каждого номера контейнера во всей базе для выявления дубликатов
       const wagonCounts = {};
       allContainers.forEach(item => {
         const num = (item.container_no || '').trim().toUpperCase();
@@ -2024,7 +2364,7 @@
         if (isDuplicate) {
           wagonDisplay = `
             <strong style="color: #dc2626; font-size: 0.94rem;">${escapeHtml(c.container_no)}</strong>
-            <span class="badge-duplicate" title="Дубликат! Этот номер вагона внесен в систему ${dupCount} раз(а). Пока дубликат не будет удален, он подсвечивается красным цветом.">⚠️ Дубликат (${dupCount})</span>
+            <span class="badge-duplicate" title="Дубликат! Этот номер контейнера внесен в систему ${dupCount} раз(а). Пока дубликат не будет удален, он подсвечивается красным цветом.">⚠️ Дубликат (${dupCount})</span>
           `;
         }
 
@@ -2104,7 +2444,7 @@
     }
 
     function openAddModal() {
-      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры / вагоны';
+      document.getElementById('modalTitle').textContent = '➕ Добавить контейнеры';
       document.getElementById('editContainerId').value = '';
       document.getElementById('f_no').value = '';
       document.getElementById('f_no').rows = 3;
@@ -2183,7 +2523,7 @@
       const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Сотрудник';
       const api = getApiBase();
 
-      // Проверка на повторный ввод номеров вагонов
+      // Проверка на повторный ввод номеров контейнеров
       const existingSet = new Set(
         allContainers
           .filter(c => !id || String(c.id) !== String(id))
@@ -2200,7 +2540,7 @@
         }
 
         if (existingSet.has(singleNo)) {
-          if (!confirm(`⚠️ Внимание! Вы уже данный вагон вводили: ${singleNo}.\n\nВы уверены, что хотите сохранить эти данные?`)) {
+          if (!confirm(`⚠️ Внимание! Вы уже данный контейнер вводили: ${singleNo}.\n\nВы уверены, что хотите сохранить эти данные?`)) {
             return;
           }
         }
@@ -2252,10 +2592,10 @@
         }
 
       } else {
-        // Добавление новых контейнеров / вагонов без ограничений
+        // Добавление новых контейнеров без ограничений
         const numbers = parseContainerNumbers(rawNo);
         if (numbers.length === 0) {
-          alert('Укажите хотя бы один номер контейнера или вагона!');
+          alert('Укажите хотя бы один номер контейнера!');
           return;
         }
 
@@ -2264,8 +2604,8 @@
           const uniqueDups = Array.from(new Set(dups));
           const dupStr = uniqueDups.slice(0, 8).join(', ') + (uniqueDups.length > 8 ? ` и еще ${uniqueDups.length - 8} шт.` : '');
           const msg = uniqueDups.length === 1
-            ? `⚠️ Внимание! Вы уже данный вагон вводили: ${uniqueDups[0]}.\n\nВы действительно хотите добавить его повторно?`
-            : `⚠️ Внимание! Вы уже данные вагоны вводили: ${dupStr}.\n\nВы действительно хотите добавить их повторно?`;
+            ? `⚠️ Внимание! Вы уже данный контейнер вводили: ${uniqueDups[0]}.\n\nВы действительно хотите добавить его повторно?`
+            : `⚠️ Внимание! Вы уже данные контейнеры вводили: ${dupStr}.\n\nВы действительно хотите добавить их повторно?`;
           if (!confirm(msg)) {
             return;
           }
@@ -2352,6 +2692,12 @@
       const id = document.getElementById('editContainerId').value;
       if (!id) return;
       if (!confirm('Вы точно хотите удалить этот контейнер?')) return;
+
+      // Сохраняем в архив перед удалением ТОЛЬКО если это дубликат
+      const itemToArchive = allContainers.find(x => String(x.id) === String(id));
+      if (itemToArchive && isContainerDuplicate(itemToArchive.container_no)) {
+        archiveContainersLocally([itemToArchive]);
+      }
 
       if (isOfflineMode) {
         allContainers = allContainers.filter(x => x.id != id);
@@ -2481,9 +2827,11 @@
       const hairatanCount = dataset.filter(c => c.destination === 'Хайратон' || c.destination === 'Афганистан').length;
       const termezCount = dataset.filter(c => c.destination === 'Термез-порт' || c.destination === 'Узбекистан').length;
 
-      // Дни и задержки
+      // Дни и задержки (В среднем: нахождение в Хайратоне)
       let sumDays = 0;
       let lateCount = 0;
+      let sumHairatanDays = 0;
+      let countHairatanDays = 0;
       const itemsWithDays = dataset.map(c => {
         const days = calculateDaysInTransit(c.sent_date, c.return_date);
         sumDays += days;
@@ -2491,20 +2839,18 @@
         if (days > 15 && isNotReturned) {
           lateCount++;
         }
+        if (c.destination === 'Хайратон' || c.destination === 'Афганистан') {
+          sumHairatanDays += days;
+          countHairatanDays++;
+        }
         return { ...c, days_in_transit: days };
       });
 
-      const avgDays = total > 0 ? (sumDays / total).toFixed(1) : '0';
+      const avgHairatanDays = countHairatanDays > 0 ? (sumHairatanDays / countHairatanDays).toFixed(1) : (total > 0 ? (sumDays / total).toFixed(1) : '0');
 
       // Заполняем карточки KPI
       const kpiTotalEl = document.getElementById('dashKpiTotal');
       if (kpiTotalEl) kpiTotalEl.textContent = total;
-
-      const kpiInTransitEl = document.getElementById('dashKpiInTransit');
-      if (kpiInTransitEl) kpiInTransitEl.textContent = inTransitCount;
-
-      const kpiInTransitPctEl = document.getElementById('dashKpiInTransitPct');
-      if (kpiInTransitPctEl) kpiInTransitPctEl.textContent = `${inTransitPct}% от всех в базе`;
 
       const kpiHairatanEl = document.getElementById('dashKpiHairatan');
       if (kpiHairatanEl) kpiHairatanEl.textContent = hairatanCount;
@@ -2513,7 +2859,7 @@
       if (kpiTermezEl) kpiTermezEl.textContent = termezCount;
 
       const kpiAvgDaysEl = document.getElementById('dashKpiAvgDays');
-      if (kpiAvgDaysEl) kpiAvgDaysEl.textContent = `${avgDays} дн.`;
+      if (kpiAvgDaysEl) kpiAvgDaysEl.textContent = `${avgHairatanDays} дн.`;
 
       const kpiLateEl = document.getElementById('dashKpiLate');
       if (kpiLateEl) kpiLateEl.textContent = lateCount;
@@ -2620,7 +2966,7 @@
           data: {
             labels: clientLabels.length ? clientLabels : ['Нет клиентов'],
             datasets: [{
-              label: 'Вагонов',
+              label: 'Контейнеров',
               data: clientValues.length ? clientValues : [0],
               backgroundColor: '#6366f1',
               borderRadius: 6
@@ -2658,7 +3004,7 @@
           data: {
             labels: ['1–5 дн.', '6–10 дн.', '11–20 дн.', 'Более 20 дн.'],
             datasets: [{
-              label: 'Вагонов',
+              label: 'Контейнеров',
               data: [b1_5, b6_10, b11_20, b20plus],
               backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
               borderRadius: 6
@@ -2676,7 +3022,7 @@
         });
       }
 
-      // 5. Заполняем таблицу ТОП простаивающих вагонов (только активные без возврата)
+      // 5. Заполняем таблицу ТОП задерживающихся контейнеров (только активные без возврата)
       const lateContainers = itemsWithDays
         .filter(c => (!c.return_date || c.return_date === '-' || c.return_date === '' || c.return_date === 'null'))
         .sort((a, b) => b.days_in_transit - a.days_in_transit)
@@ -2688,7 +3034,7 @@
 
       if (tableBody) {
         if (!lateContainers.length) {
-          tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 18px; color: #16a34a; font-weight: 600;">✅ Все вагоны движутся в пределах графика!</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 18px; color: #16a34a; font-weight: 600;">✅ Все контейнеры движутся в пределах графика!</td></tr>`;
         } else {
           tableBody.innerHTML = lateContainers.map(c => {
             const isCrit = c.days_in_transit > 15;
@@ -2716,64 +3062,448 @@
       }
     }
 
-    async function openReportModal() {
-      openModal('reportModal');
-      const cont = document.getElementById('reportContent');
-      cont.innerHTML = 'Загрузка...';
+    // ==================== АРХИВ И ИСТОРИЯ РЕЙСОВ (СОХРАНЕНИЕ ТОЛЬКО ДУБЛИКАТОВ) ====================
+    function isContainerDuplicate(containerNo) {
+      if (!containerNo) return false;
+      const targetNo = containerNo.trim().toUpperCase();
+      const count = (allContainers || []).filter(item => (item.container_no || '').trim().toUpperCase() === targetNo).length;
+      return count > 1;
+    }
 
-      let rep = null;
+    function archiveContainersLocally(containersToArchive) {
+      if (!containersToArchive || !containersToArchive.length) return;
+      // Сохраняем в архив ТОЛЬКО те контейнеры, которые являлись дубликатами в базе!
+      const dupsToArchive = containersToArchive.filter(c => isContainerDuplicate(c.container_no));
+      if (!dupsToArchive.length) return;
+
+      try {
+        const stored = localStorage.getItem('dislocation_containers_archive');
+        let archive = stored ? JSON.parse(stored) : [];
+        const nowIso = new Date().toISOString();
+        const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Диспетчер';
+
+        dupsToArchive.forEach(c => {
+          archive.unshift({
+            ...c,
+            is_archived: true,
+            archived_at: nowIso,
+            deleted_by: empName,
+            deletion_reason: 'Архивация предыдущего рейса-дубликата'
+          });
+        });
+
+        // Лимит в 1000 записей для гарантированной легкости и быстродействия
+        if (archive.length > 1000) archive = archive.slice(0, 1000);
+        localStorage.setItem('dislocation_containers_archive', JSON.stringify(archive));
+      } catch (e) {
+        console.warn('Ошибка локальной архивации:', e);
+      }
+    }
+
+    async function clearArchiveHistory() {
+      const confirmClear = confirm(
+        '⚠️ Внимание!\n\nВы действительно хотите полностью очистить накопленный архив дубликатов?\n\n' +
+        'Все ранее удаленные архивные рейсы будут удалены для освобождения памяти.\n' +
+        'Текущие активные контейнеры в системе останутся в полной сохранности.'
+      );
+      if (!confirmClear) return;
+
+      try {
+        localStorage.removeItem('dislocation_containers_archive');
+        if (!isOfflineMode) {
+          const api = getApiBase();
+          await fetch(`${api}/containers/archive`, { method: 'DELETE' });
+        }
+        alert('✅ Архив дубликатов успешно очищен! Память освобождена.');
+        runPeriodReport();
+      } catch (e) {
+        console.warn('Ошибка очистки архива:', e);
+        alert('Архив локально очищен.');
+        runPeriodReport();
+      }
+    }
+
+    async function fetchAllArchivedVoyages() {
+      let serverArchive = [];
       const api = getApiBase();
 
       if (!isOfflineMode) {
         try {
-          const res = await fetch(`${api}/report`);
-          if (res.ok) rep = await res.json();
+          const res = await fetch(`${api}/containers/archive`);
+          if (res.ok) {
+            serverArchive = await res.json();
+          }
         } catch (e) {}
       }
 
-      // Если оффлайн или сервер не ответил — формируем отчет из локального списка
-      if (!rep) {
-        const hList = allContainers.filter(c => (c.destination === 'Хайратон' || c.destination === 'Афганистан') && (!c.return_date || c.return_date === '-'));
-        const tList = allContainers.filter(c => (c.destination === 'Термез-порт' || c.destination === 'Узбекистан') && (!c.return_date || c.return_date === '-'));
-        rep = {
-          summary: {
-            hairatan_now_count: hList.length,
-            termez_now_count: tList.length
-          },
-          hairatan_now: hList.map(c => ({
-            container_no: c.container_no,
-            cargo_name: c.cargo_name || '',
-            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
-            status: c.status
-          })),
-          termez_now: tList.map(c => ({
-            container_no: c.container_no,
-            cargo_name: c.cargo_name || '',
-            days_in_transit: calculateDaysInTransit(c.sent_date, c.return_date),
-            status: c.status
-          }))
-        };
+      let localArchive = [];
+      try {
+        const stored = localStorage.getItem('dislocation_containers_archive');
+        if (stored) localArchive = JSON.parse(stored);
+      } catch (e) {}
+
+      const combined = [];
+      const seen = new Set();
+
+      serverArchive.forEach(item => {
+        const key = `${(item.container_no || '').trim().toUpperCase()}_${item.sent_date || ''}_${item.return_date || ''}`;
+        seen.add(key);
+        combined.push({ ...item, is_archived: true });
+      });
+
+      localArchive.forEach(item => {
+        const key = `${(item.container_no || '').trim().toUpperCase()}_${item.sent_date || ''}_${item.return_date || ''}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          combined.push({ ...item, is_archived: true });
+        }
+      });
+
+      return combined;
+    }
+
+    // ==================== ПЕРИОДИЧЕСКИЙ ОТЧЕТ ПО ДИСЛОКАЦИИ ====================
+    let currentReportItems = [];
+    let currentReportPeriodTitle = '';
+
+    function openReportModal() {
+      openModal('reportModal');
+      const fromEl = document.getElementById('repDateFrom');
+      const toEl = document.getElementById('repDateTo');
+      if (fromEl && !fromEl.value && toEl && !toEl.value) {
+        setReportPreset('all_time');
+      } else {
+        runPeriodReport();
+      }
+    }
+
+    function setReportPreset(preset) {
+      const fromEl = document.getElementById('repDateFrom');
+      const toEl = document.getElementById('repDateTo');
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+
+      if (preset === 'this_month') {
+        const firstDay = new Date(y, m, 1);
+        const lastDay = new Date(y, m + 1, 0);
+        if (fromEl) fromEl.value = toInputDateValue(firstDay);
+        if (toEl) toEl.value = toInputDateValue(lastDay);
+      } else if (preset === 'last_month') {
+        const firstDay = new Date(y, m - 1, 1);
+        const lastDay = new Date(y, m, 0);
+        if (fromEl) fromEl.value = toInputDateValue(firstDay);
+        if (toEl) toEl.value = toInputDateValue(lastDay);
+      } else if (preset === 'september_2026') {
+        if (fromEl) fromEl.value = '2026-09-01';
+        if (toEl) toEl.value = '2026-09-30';
+      } else if (preset === 'october_2026') {
+        if (fromEl) fromEl.value = '2026-10-01';
+        if (toEl) toEl.value = '2026-10-31';
+      } else if (preset === 'all_time') {
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
       }
 
-      const hCount = (rep.summary && rep.summary.hairatan_now_count !== undefined) ? rep.summary.hairatan_now_count : (rep.hairatan_now ? rep.hairatan_now.length : 0);
-      const tCount = (rep.summary && rep.summary.termez_now_count !== undefined) ? rep.summary.termez_now_count : (rep.termez_now ? rep.termez_now.length : 0);
+      runPeriodReport();
+    }
 
-      cont.innerHTML = `
-        <div style="display: flex; gap: 20px;">
-          <div style="flex: 1; border: 1px solid #fecaca; background: #fff5f5; border-radius: 8px; padding: 14px;">
-            <h4 style="color: #dc2626; margin-bottom: 10px; font-size: 1.05rem;">📍 В Хайратоне (${hCount})</h4>
-            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
-              ${(rep.hairatan_now && rep.hairatan_now.length) ? rep.hairatan_now.map(a => `<li><strong>${escapeHtml(a.container_no)}</strong> ${a.cargo_name ? '[' + escapeHtml(a.cargo_name) + ']' : ''} — ${a.days_in_transit || a.days_in_afghanistan || 0} дн. (${escapeHtml(a.status || '')})</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
-            </ul>
-          </div>
-          <div style="flex: 1; border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 8px; padding: 14px;">
-            <h4 style="color: #16a34a; margin-bottom: 10px; font-size: 1.05rem;">📍 В Термез-порту (${tCount})</h4>
-            <ul style="max-height: 400px; overflow-y: auto; padding-left: 20px; font-size: 0.9rem; line-height: 1.6;">
-              ${(rep.termez_now && rep.termez_now.length) ? rep.termez_now.map(u => `<li><strong>${escapeHtml(u.container_no || u)}</strong> ${u.cargo_name ? '[' + escapeHtml(u.cargo_name) + ']' : ''} — ${u.status || ''}</li>`).join('') : '<li style="color:#64748b">Нет контейнеров</li>'}
-            </ul>
-          </div>
-        </div>
-      `;
+    async function runPeriodReport() {
+      const fromVal = document.getElementById('repDateFrom')?.value || '';
+      const toVal = document.getElementById('repDateTo')?.value || '';
+      const destVal = document.getElementById('repDest')?.value || 'Все';
+      const statusVal = document.getElementById('repStatus')?.value || 'Все';
+      const sourceVal = document.getElementById('repSource')?.value || 'all';
+      const dateMode = document.getElementById('repDateMode')?.value || 'sent';
+
+      const dFrom = parseDateOnly(fromVal);
+      const dTo = parseDateOnly(toVal);
+
+      // Получаем активные контейнеры
+      const activeList = (allContainers || []).map(c => ({ ...c, is_archived: false }));
+
+      // Получаем архивные рейсы
+      const archivedList = await fetchAllArchivedVoyages();
+
+      let pool = [];
+      if (sourceVal === 'all') {
+        pool = [...activeList, ...archivedList];
+      } else if (sourceVal === 'active') {
+        pool = activeList;
+      } else {
+        pool = archivedList;
+      }
+
+      // Фильтрация по нахождению, статусу и строго по дате выбранного периода
+      const filtered = pool.filter(c => {
+        if (destVal !== 'Все' && destVal !== 'Все нахождения') {
+          if (c.destination !== destVal) return false;
+        }
+
+        if (statusVal !== 'Все' && statusVal !== 'Все статусы') {
+          if (c.status !== statusVal) return false;
+        }
+
+        if (!dFrom && !dTo) return true;
+
+        const sentD = parseDateOnly(c.sent_date);
+        const retD = parseDateOnly(c.return_date);
+        const targetD = (dateMode === 'return') ? retD : sentD;
+
+        if (dFrom && dTo) {
+          if (!targetD || targetD < dFrom || targetD > dTo) return false;
+        } else if (dFrom) {
+          if (!targetD || targetD < dFrom) return false;
+        } else if (dTo) {
+          if (!targetD || targetD > dTo) return false;
+        }
+
+        return true;
+      });
+
+      // Сортировка: сначала новые даты отправки
+      filtered.sort((a, b) => {
+        const da = parseDateOnly(a.sent_date);
+        const db = parseDateOnly(b.sent_date);
+        const ta = da ? da.getTime() : 0;
+        const tb = db ? db.getTime() : 0;
+        return tb - ta;
+      });
+
+      currentReportItems = filtered;
+
+      // Заголовок периода
+      let periodTxt = 'Все время';
+      if (fromVal && toVal) {
+        periodTxt = `${formatDate(fromVal)} — ${formatDate(toVal)}`;
+      } else if (fromVal) {
+        periodTxt = `С ${formatDate(fromVal)}`;
+      } else if (toVal) {
+        periodTxt = `По ${formatDate(toVal)}`;
+      }
+      currentReportPeriodTitle = periodTxt;
+
+      const titleEl = document.getElementById('repPeriodTitle');
+      if (titleEl) titleEl.textContent = `Период: ${periodTxt}`;
+      const cntEl = document.getElementById('repPeriodCount');
+      if (cntEl) cntEl.textContent = `Записей в отчете: ${filtered.length}`;
+
+      // Сводка KPI за выбранный период
+      const totalCnt = filtered.length;
+      const hairatanCnt = filtered.filter(c => c.destination === 'Хайратон' || c.destination === 'Афганистан').length;
+      const termezCnt = filtered.filter(c => c.destination === 'Термез-порт' || c.destination === 'Узбекистан').length;
+      const archCnt = filtered.filter(c => c.is_archived).length;
+
+      let sumHairatanDays = 0;
+      let hairatanDaysCount = 0;
+      filtered.forEach(c => {
+        const days = calculateDaysInTransit(c.sent_date, c.return_date);
+        if (c.destination === 'Хайратон' || c.destination === 'Афганистан') {
+          sumHairatanDays += days;
+          hairatanDaysCount++;
+        }
+      });
+      const avgHairatanDays = hairatanDaysCount > 0 ? (sumHairatanDays / hairatanDaysCount).toFixed(1) : '0';
+
+      const repKpiTotal = document.getElementById('repKpiTotal');
+      if (repKpiTotal) repKpiTotal.textContent = totalCnt;
+      const repKpiHairatan = document.getElementById('repKpiHairatan');
+      if (repKpiHairatan) repKpiHairatan.textContent = hairatanCnt;
+      const repKpiTermez = document.getElementById('repKpiTermez');
+      if (repKpiTermez) repKpiTermez.textContent = termezCnt;
+      const repKpiAvgDays = document.getElementById('repKpiAvgDays');
+      if (repKpiAvgDays) repKpiAvgDays.textContent = `${avgHairatanDays} дн.`;
+      const repKpiArchived = document.getElementById('repKpiArchived');
+      if (repKpiArchived) repKpiArchived.textContent = archCnt;
+
+      // Рендеринг таблицы отчета
+      const tbody = document.getElementById('repTableBody');
+      if (tbody) {
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding: 25px; color:#64748b;">Нет рейсов за выбранный период и фильтры.</td></tr>`;
+        } else {
+          tbody.innerHTML = filtered.map(c => {
+            const days = calculateDaysInTransit(c.sent_date, c.return_date);
+            const isArch = Boolean(c.is_archived);
+            const statusBadge = isArch
+              ? `<span style="background: #fef3c7; color: #b45309; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 0.72rem; border: 1px solid #fde68a;">🗄️ Архивный рейс</span>`
+              : `<span style="background: #dcfce7; color: #15803d; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 0.72rem; border: 1px solid #bbf7d0;">🟢 Активный</span>`;
+
+            const locBadge = c.destination === 'Хайратон'
+              ? `<span style="font-weight:600; color:#dc2626;">Хайратон</span>`
+              : (c.destination === 'Термез-порт' ? `<span style="font-weight:600; color:#0d9488;">Термез-порт</span>` : escapeHtml(c.destination || '-'));
+
+            const cargoStateBadge = c.status === 'Порожний'
+              ? `<span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">Порожний</span>`
+              : `<span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">Груженный</span>`;
+
+            let historyInfo = escapeHtml(c.added_by || 'Диспетчер');
+            if (isArch && c.deleted_by) {
+              historyInfo += ` <span style="font-size:0.75rem; color:#d97706;" title="Удален/заархивирован: ${escapeHtml(c.archived_at || '')}">(уд: ${escapeHtml(c.deleted_by)})</span>`;
+            }
+
+            return `
+              <tr style="border-bottom: 1px solid #e2e8f0; ${isArch ? 'background: #fffbeb;' : ''}">
+                <td style="padding: 8px 10px; font-weight: 700; border: 1px solid #e2e8f0;">${escapeHtml(c.container_no)}</td>
+                <td style="padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0;">${statusBadge}</td>
+                <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${escapeHtml(c.client || '-')}</td>
+                <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${escapeHtml(c.cargo_name || '-')}</td>
+                <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${escapeHtml(c.barge || '-')}</td>
+                <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${locBadge}</td>
+                <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${cargoStateBadge}</td>
+                <td style="padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0;">${formatDate(c.sent_date)}</td>
+                <td style="padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0;">${formatDate(c.return_date)}</td>
+                <td style="padding: 8px 10px; text-align: center; font-weight: 700; color: #1e3a8a; border: 1px solid #e2e8f0;">${days}</td>
+                <td style="padding: 8px 10px; font-size: 0.8rem; border: 1px solid #e2e8f0;">${historyInfo}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    // ==================== ПРЕДСТАВИТЕЛЬСКИЙ ЭКСПОРТ В EXCEL (.XLSX) ====================
+    function exportPeriodReportExcel() {
+      if (!currentReportItems || !currentReportItems.length) {
+        alert('Нет данных для выгрузки в Excel за выбранный период!');
+        return;
+      }
+
+      const empName = currentEmployee ? (currentEmployee.full_name || currentEmployee.username) : 'Диспетчер';
+      const now = new Date();
+      const nowStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const totalCnt = currentReportItems.length;
+      const hairatanCnt = currentReportItems.filter(c => c.destination === 'Хайратон' || c.destination === 'Афганистан').length;
+      const termezCnt = currentReportItems.filter(c => c.destination === 'Термез-порт' || c.destination === 'Узбекистан').length;
+      const archCnt = currentReportItems.filter(c => c.is_archived).length;
+
+      let sumH = 0, cntH = 0;
+      currentReportItems.forEach(c => {
+        if (c.destination === 'Хайратон' || c.destination === 'Афганистан') {
+          sumH += calculateDaysInTransit(c.sent_date, c.return_date);
+          cntH++;
+        }
+      });
+      const avgHDays = cntH > 0 ? (sumH / cntH).toFixed(1) : '0';
+
+      // Формирование структуры официального листа Excel
+      const aoa = [
+        ['🚢 СИСТЕМА ДИСЛОКАЦИИ КОНТЕЙНЕРОВ "МОНИТОРИНГ PRO"'],
+        ['📊 ОФИЦИАЛЬНЫЙ ПЕРИОДИЧЕСКИЙ ОТЧЕТ ПО ДВИЖЕНИЮ КОНТЕЙНЕРОВ'],
+        [`Период отчета: ${currentReportPeriodTitle || 'Все время'}   |   Сформирован: ${nowStr}   |   Диспетчер: ${empName}`],
+        [],
+        [
+          'ИТОГИ ЗА ПЕРИОД:',
+          `Всего рейсов: ${totalCnt}`,
+          `В Хайратоне: ${hairatanCnt}`,
+          `В Термез-порту: ${termezCnt}`,
+          `Ср. срок в Хайратоне: ${avgHDays} дн.`,
+          `Архивных рейсов-дубликатов: ${archCnt}`
+        ],
+        [],
+        [
+          '№ п/п',
+          '№ Контейнера',
+          'Статус рейса',
+          'Грузополучатель',
+          'Наименование груза',
+          'Баржа',
+          'Нахождение',
+          'Состояние',
+          'Дата отправки',
+          'Дата возврата',
+          'Количество дней',
+          'Причина / Примечание',
+          'Кем добавлен',
+          'Кем заархивирован / Примечание'
+        ]
+      ];
+
+      currentReportItems.forEach((c, idx) => {
+        const days = calculateDaysInTransit(c.sent_date, c.return_date);
+        const statusTxt = c.is_archived ? '🗄️ Архивный рейс (ранее удаленный дубликат)' : '🟢 Активный рейс в работе';
+        aoa.push([
+          idx + 1,
+          c.container_no,
+          statusTxt,
+          c.client || '-',
+          c.cargo_name || '-',
+          c.barge || '-',
+          c.destination || '-',
+          c.status || '-',
+          formatDate(c.sent_date),
+          formatDate(c.return_date),
+          days,
+          c.reason || '-',
+          c.added_by || '-',
+          c.deleted_by ? `${c.deleted_by} (${formatDate(c.archived_at)})` : (c.is_archived ? 'Архивирован' : '-')
+        ]);
+      });
+
+      aoa.push([]);
+      aoa.push([
+        'ИТОГО:',
+        `${totalCnt} рейсов`,
+        `Активных: ${totalCnt - archCnt}, Архивных: ${archCnt}`,
+        '',
+        '',
+        '',
+        `Хайратон: ${hairatanCnt}, Термез: ${termezCnt}`,
+        '',
+        '',
+        '',
+        `Ср. срок в Хайратоне: ${avgHDays} дн.`
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Объединения строк шапки отчета
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 13 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 13 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 13 } }
+      ];
+
+      // Оптимальная ширина каждой колонки (без обрезания текста)
+      ws['!cols'] = [
+        { wch: 6 },  // № п/п
+        { wch: 18 }, // № Контейнера
+        { wch: 40 }, // Статус рейса
+        { wch: 28 }, // Грузополучатель
+        { wch: 24 }, // Груз
+        { wch: 16 }, // Баржа
+        { wch: 18 }, // Нахождение
+        { wch: 15 }, // Состояние
+        { wch: 16 }, // Отправка
+        { wch: 16 }, // Возврат
+        { wch: 16 }, // Количество дней
+        { wch: 26 }, // Причина
+        { wch: 24 }, // Кем добавлен
+        { wch: 30 }  // Кем заархивирован
+      ];
+
+      // Презентабельная высота строк
+      ws['!rows'] = [
+        { hpt: 28 },
+        { hpt: 22 },
+        { hpt: 18 },
+        { hpt: 8 },
+        { hpt: 22 },
+        { hpt: 8 },
+        { hpt: 26 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Отчет по дислокации');
+
+      const safePeriod = (currentReportPeriodTitle || 'Период').replace(/[^a-zA-Z0-9а-яА-Я._-]/g, '_');
+      const filename = `Отчет_дислокация_${safePeriod}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    }
+
+    function printPeriodReport() {
+      window.print();
     }
 
     function openModal(id) { document.getElementById(id).classList.add('active'); }

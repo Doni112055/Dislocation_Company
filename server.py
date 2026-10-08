@@ -123,6 +123,31 @@ def init_db():
             ('operator', ?, 'Оператор мониторинга', 'dispatcher', 1, ?)
         """, (hash_password("admin123"), ts, hash_password("12345"), ts))
 
+    # Таблица архива удаленных/завершенных рейсов контейнеров (для отчетов за любые периоды)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS container_archive (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_id INTEGER,
+        container_no TEXT NOT NULL,
+        client TEXT DEFAULT '',
+        cargo_name TEXT DEFAULT '',
+        barge TEXT DEFAULT '',
+        destination TEXT NOT NULL,
+        status TEXT NOT NULL,
+        reason TEXT DEFAULT '',
+        sent_date TEXT NOT NULL,
+        return_date TEXT DEFAULT NULL,
+        country TEXT DEFAULT '',
+        added_by TEXT DEFAULT '',
+        deleted_by TEXT DEFAULT '',
+        deleted_reason TEXT DEFAULT '',
+        deleted_at TEXT NOT NULL
+    )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_archive_no ON container_archive(container_no);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_archive_sent ON container_archive(sent_date);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_archive_ret ON container_archive(return_date);")
+
     # Индексы для мгновенного поиска по тысячам контейнеров
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_no ON containers(container_no);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_containers_client ON containers(client);")
@@ -653,16 +678,52 @@ def delete_container(container_id: int, payload: DeletePayload):
         raise HTTPException(status_code=404, detail="Контейнер не найден")
 
     c_dict = dict(row)
+    del_ts = now_ts()
+
+    # Проверяем, является ли контейнер дубликатом (наличие 2 или более записей с таким номером в базе)
+    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE UPPER(TRIM(container_no)) = UPPER(TRIM(?))", (c_dict["container_no"],))
+    dup_res = cur.fetchone()
+    dup_count = dup_res["cnt"] if dup_res else 0
+
+    # Сохраняем в архив ТОЛЬКО если это дубликат (завершенный рейс при повторном вводе)
+    was_archived = False
+    if dup_count > 1:
+        cur.execute("""
+            INSERT INTO container_archive (
+                original_id, container_no, client, cargo_name, barge, destination, status, reason,
+                sent_date, return_date, country, added_by, deleted_by, deleted_reason, deleted_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            c_dict.get("id"),
+            c_dict.get("container_no"),
+            c_dict.get("client") or "",
+            c_dict.get("cargo_name") or "",
+            c_dict.get("barge") or "",
+            c_dict.get("destination"),
+            c_dict.get("status"),
+            c_dict.get("reason") or "",
+            c_dict.get("sent_date"),
+            c_dict.get("return_date"),
+            c_dict.get("country") or "",
+            c_dict.get("added_by") or "",
+            payload.user or "Диспетчер",
+            payload.reason or "Архивация предыдущего рейса-дубликата",
+            del_ts
+        ))
+        was_archived = True
+
     log_history(con, container_id, c_dict["container_no"], "DELETE", {
         "deleted_record": c_dict,
-        "reason": payload.reason
+        "reason": payload.reason,
+        "archived_as_duplicate": was_archived
     }, payload.user)
 
     cur.execute("DELETE FROM containers WHERE id = ?", (container_id,))
     con.commit()
     con.close()
 
-    return {"ok": True, "message": f"Контейнер {c_dict['container_no']} удален"}
+    msg = f"Контейнер {c_dict['container_no']} удален" + (" и сохранен в архив дубликатов" if was_archived else "")
+    return {"ok": True, "archived": was_archived, "message": msg}
 
 
 @app.post("/containers/batch-delete")
@@ -682,12 +743,47 @@ def batch_delete_containers(payload: BatchDeletePayload):
         return {"ok": True, "deleted_count": 0, "message": "Контейнеры не найдены"}
 
     deleted_nos = []
+    archived_nos = []
+    del_ts = now_ts()
     for r in rows:
         c_dict = dict(r)
         deleted_nos.append(c_dict["container_no"])
+
+        # Проверяем, является ли контейнер дубликатом
+        cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE UPPER(TRIM(container_no)) = UPPER(TRIM(?))", (c_dict["container_no"],))
+        dup_res = cur.fetchone()
+        dup_count = dup_res["cnt"] if dup_res else 0
+
+        # Архивируем ТОЛЬКО дубликаты
+        if dup_count > 1:
+            cur.execute("""
+                INSERT INTO container_archive (
+                    original_id, container_no, client, cargo_name, barge, destination, status, reason,
+                    sent_date, return_date, country, added_by, deleted_by, deleted_reason, deleted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                c_dict.get("id"),
+                c_dict.get("container_no"),
+                c_dict.get("client") or "",
+                c_dict.get("cargo_name") or "",
+                c_dict.get("barge") or "",
+                c_dict.get("destination"),
+                c_dict.get("status"),
+                c_dict.get("reason") or "",
+                c_dict.get("sent_date"),
+                c_dict.get("return_date"),
+                c_dict.get("country") or "",
+                c_dict.get("added_by") or "",
+                payload.user or "Диспетчер",
+                payload.reason or "Пакетная архивация дубликатов",
+                del_ts
+            ))
+            archived_nos.append(c_dict["container_no"])
+
         log_history(con, c_dict["id"], c_dict["container_no"], "DELETE", {
             "deleted_record": c_dict,
-            "reason": payload.reason or "Пакетное удаление"
+            "reason": payload.reason or "Пакетное удаление",
+            "archived_as_duplicate": (dup_count > 1)
         }, payload.user or "Диспетчер")
 
     cur.execute(f"DELETE FROM containers WHERE id IN ({placeholders})", tuple(payload.container_ids))
@@ -698,13 +794,41 @@ def batch_delete_containers(payload: BatchDeletePayload):
         "ok": True,
         "deleted_count": len(deleted_nos),
         "deleted_numbers": deleted_nos,
-        "message": f"Успешно удалено контейнеров: {len(deleted_nos)} шт."
+        "archived_count": len(archived_nos),
+        "archived_numbers": archived_nos,
+        "message": f"Успешно удалено: {len(deleted_nos)} шт. (в архив дубликатов сохранено: {len(archived_nos)} шт.)"
     }
 
 
 @app.delete("/containers/batch")
 def delete_containers_batch(payload: BatchDeletePayload):
     return batch_delete_containers(payload)
+
+
+@app.get("/containers/archive")
+def get_container_archive():
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT * FROM container_archive ORDER BY id DESC")
+    rows = cur.fetchall()
+    con.close()
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["days_in_transit"] = calculate_days(d.get("sent_date", ""), d.get("return_date"))
+        d["is_archived"] = True
+        result.append(d)
+    return result
+
+
+@app.delete("/containers/archive")
+def clear_container_archive():
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("DELETE FROM container_archive")
+    con.commit()
+    con.close()
+    return {"ok": True, "message": "Архив дубликатов успешно очищен"}
 
 
 @app.get("/containers/{container_id}/history")
