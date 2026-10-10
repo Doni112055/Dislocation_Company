@@ -2153,41 +2153,79 @@
       }
     }
 
-    async function fetchStats() {
-      const api = getApiBase();
-      try {
-        const res = await fetch(`${api}/stats`);
-        if (!res.ok) return;
-        const st = await res.json();
-        document.getElementById('kpiSentToday').textContent = st.sent_today || 0;
-        document.getElementById('kpiHairatan').textContent = st.hairatan_count || 0;
-        document.getElementById('kpiTermez').textContent = st.termez_count || 0;
-        document.getElementById('kpiLoaded').textContent = st.loaded_count || 0;
-        document.getElementById('kpiEmpty').textContent = st.empty_count || 0;
-      } catch (e) {
-        updateOfflineStats();
-      }
+    function updateKpiStats() {
+      if (!allContainers) allContainers = [];
+      const now = new Date();
+
+      const sentToday = allContainers.filter(c => {
+        const d = parseDateOnly(c.sent_date);
+        return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+      }).length;
+
+      const hairatan = allContainers.filter(c => {
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('хайратон') || d.includes('афганистан') || d.includes('hairatan') || d.includes('afghanistan');
+      }).length;
+
+      const termez = allContainers.filter(c => {
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('термез') || d.includes('узбекистан') || d.includes('termez') || d.includes('uzbekistan');
+      }).length;
+
+      const loaded = allContainers.filter(c => {
+        const s = (c.status || '').trim().toLowerCase();
+        return s.includes('груж');
+      }).length;
+
+      const empty = allContainers.filter(c => {
+        const s = (c.status || '').trim().toLowerCase();
+        return s.includes('порож');
+      }).length;
+
+      const elToday = document.getElementById('kpiSentToday');
+      const elHairatan = document.getElementById('kpiHairatan');
+      const elTermez = document.getElementById('kpiTermez');
+      const elLoaded = document.getElementById('kpiLoaded');
+      const elEmpty = document.getElementById('kpiEmpty');
+
+      if (elToday) elToday.textContent = sentToday;
+      if (elHairatan) elHairatan.textContent = hairatan;
+      if (elTermez) elTermez.textContent = termez;
+      if (elLoaded) elLoaded.textContent = loaded;
+      if (elEmpty) elEmpty.textContent = empty;
     }
 
     function updateOfflineStats() {
-      const today = toInputDateValue(new Date());
-      const sentToday = allContainers.filter(c => toInputDateValue(c.sent_date) === today).length;
-      const hairatan = allContainers.filter(c => {
-        const d = (c.destination || '').trim().toLowerCase();
-        return d.includes('хайратон') || d.includes('афганистан');
-      }).length;
-      const termez = allContainers.filter(c => {
-        const d = (c.destination || '').trim().toLowerCase();
-        return d.includes('термез') || d.includes('узбекистан');
-      }).length;
-      const loaded = allContainers.filter(c => (c.status || '').trim().toLowerCase() === 'груженный').length;
-      const empty = allContainers.filter(c => (c.status || '').trim().toLowerCase() === 'порожний').length;
+      updateKpiStats();
+    }
 
-      document.getElementById('kpiSentToday').textContent = sentToday;
-      document.getElementById('kpiHairatan').textContent = hairatan;
-      document.getElementById('kpiTermez').textContent = termez;
-      document.getElementById('kpiLoaded').textContent = loaded;
-      document.getElementById('kpiEmpty').textContent = empty;
+    async function fetchStats() {
+      // 1. Моментально и 100% точно рассчитываем прямо по массиву allContainers в памяти
+      updateKpiStats();
+
+      // 2. Если сервер доступен, синхронизируем значения с бэкенда
+      if (!isOfflineMode) {
+        const api = getApiBase();
+        try {
+          const res = await fetch(`${api}/stats`);
+          if (res.ok) {
+            const st = await res.json();
+            const elToday = document.getElementById('kpiSentToday');
+            const elHairatan = document.getElementById('kpiHairatan');
+            const elTermez = document.getElementById('kpiTermez');
+            const elLoaded = document.getElementById('kpiLoaded');
+            const elEmpty = document.getElementById('kpiEmpty');
+
+            if (elToday && st.sent_today !== undefined) elToday.textContent = st.sent_today;
+            if (elHairatan && st.hairatan_count !== undefined) elHairatan.textContent = st.hairatan_count;
+            if (elTermez && st.termez_count !== undefined) elTermez.textContent = st.termez_count;
+            if (elLoaded && st.loaded_count !== undefined) elLoaded.textContent = st.loaded_count;
+            if (elEmpty && st.empty_count !== undefined) elEmpty.textContent = st.empty_count;
+          }
+        } catch (e) {
+          updateKpiStats();
+        }
+      }
     }
 
     let selectedContainerIds = new Set();
@@ -2825,8 +2863,14 @@
       const inTransitPct = baseList.length > 0 ? Math.round((inTransitCount / baseList.length) * 100) : 0;
 
       // Нахождения
-      const hairatanCount = dataset.filter(c => c.destination === 'Хайратон' || c.destination === 'Афганистан').length;
-      const termezCount = dataset.filter(c => c.destination === 'Термез-порт' || c.destination === 'Узбекистан').length;
+      const hairatanCount = dataset.filter(c => {
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('хайратон') || d.includes('афганистан') || d.includes('hairatan');
+      }).length;
+      const termezCount = dataset.filter(c => {
+        const d = (c.destination || '').trim().toLowerCase();
+        return d.includes('термез') || d.includes('узбекистан') || d.includes('termez');
+      }).length;
 
       // Дни и задержки (В среднем: нахождение в Хайратоне)
       let sumDays = 0;
@@ -2840,7 +2884,8 @@
         if (days > 15 && isNotReturned) {
           lateCount++;
         }
-        if (c.destination === 'Хайратон' || c.destination === 'Афганистан') {
+        const dLower = (c.destination || '').trim().toLowerCase();
+        if (dLower.includes('хайратон') || dLower.includes('афганистан') || dLower.includes('hairatan')) {
           sumHairatanDays += days;
           countHairatanDays++;
         }

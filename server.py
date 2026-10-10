@@ -859,54 +859,45 @@ def get_stats():
     con = get_db()
     cur = con.cursor()
 
-    today_str = date.today().strftime("%Y-%m-%d")
+    cur.execute("SELECT destination, status, sent_date, return_date FROM containers")
+    rows = [dict(r) for r in cur.fetchall()]
+    con.close()
 
-    # Всего записей
-    cur.execute("SELECT COUNT(*) as total FROM containers")
-    total = cur.fetchone()["total"]
+    total = len(rows)
+    today_iso = date.today().strftime("%Y-%m-%d")
+    today_dot = date.today().strftime("%d.%m.%Y")
 
-    # Отправлено сегодня
-    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE sent_date = ?", (today_str,))
-    sent_today = cur.fetchone()["cnt"]
+    def is_today(val: str) -> bool:
+        if not val:
+            return False
+        clean = val.strip()
+        return clean == today_iso or clean == today_dot
 
-    # В Хайратоне
-    cur.execute("""
-        SELECT COUNT(*) as cnt FROM containers
-        WHERE LOWER(destination) LIKE '%хайратон%' OR LOWER(destination) LIKE '%афганистан%'
-    """)
-    hairatan_cnt = cur.fetchone()["cnt"]
+    sent_today = sum(1 for r in rows if is_today(r.get("sent_date") or ""))
 
-    # В Термез-порту
-    cur.execute("""
-        SELECT COUNT(*) as cnt FROM containers
-        WHERE LOWER(destination) LIKE '%термез%' OR LOWER(destination) LIKE '%узбекистан%'
-    """)
-    termez_cnt = cur.fetchone()["cnt"]
+    # В Хайратоне (учитываем любые варианты регистра и написания: Хайратон, хайратон, ХАЙРАТОН, Афганистан)
+    hairatan_cnt = sum(
+        1 for r in rows
+        if any(k in (r.get("destination") or "").lower() for k in ["хайратон", "афганистан", "hairatan", "afghanistan"])
+    )
+
+    # В Термез-порту (учитываем любые варианты: Термез-порт, термез, ТЕРМЕЗ, Узбекистан)
+    termez_cnt = sum(
+        1 for r in rows
+        if any(k in (r.get("destination") or "").lower() for k in ["термез", "узбекистан", "termez", "uzbekistan"])
+    )
 
     # По статусам: Груженный и Порожний
-    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE status = 'Груженный'")
-    loaded_cnt = cur.fetchone()["cnt"]
-    cur.execute("SELECT COUNT(*) as cnt FROM containers WHERE status = 'Порожний'")
-    empty_cnt = cur.fetchone()["cnt"]
+    loaded_cnt = sum(1 for r in rows if "груж" in (r.get("status") or "").lower())
+    empty_cnt = sum(1 for r in rows if "порож" in (r.get("status") or "").lower())
 
-    # По нахождениям
-    cur.execute("""
-        SELECT destination, COUNT(*) as cnt
-        FROM containers
-        GROUP BY destination
-        ORDER BY cnt DESC
-    """)
-    by_destination = {r["destination"]: r["cnt"] for r in cur.fetchall()}
-
-    # По всем статусам
-    cur.execute("""
-        SELECT status, COUNT(*) as cnt
-        FROM containers
-        GROUP BY status
-    """)
-    by_status = {r["status"]: r["cnt"] for r in cur.fetchall()}
-
-    con.close()
+    by_destination = {}
+    by_status = {}
+    for r in rows:
+        d = (r.get("destination") or "Не указано").strip()
+        s = (r.get("status") or "Не указан").strip()
+        by_destination[d] = by_destination.get(d, 0) + 1
+        by_status[s] = by_status.get(s, 0) + 1
 
     return {
         "total_containers": total,
@@ -990,10 +981,11 @@ def get_report():
         c_copy["client"] = c.get("client") or ""
         c_copy["cargo_name"] = c.get("cargo_name") or ""
 
+        dest_l = dest.lower()
         if not has_returned:
-            if dest in ("Хайратон", "Афганистан"):
+            if "хайратон" in dest_l or "афганистан" in dest_l or "hairatan" in dest_l:
                 hairatan_now.append(c_copy)
-            elif dest in ("Термез-порт", "Узбекистан"):
+            elif "термез" in dest_l or "узбекистан" in dest_l or "termez" in dest_l:
                 termez_now.append(c_copy)
 
     return {
